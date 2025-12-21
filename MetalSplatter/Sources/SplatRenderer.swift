@@ -30,7 +30,9 @@ public class SplatRenderer {
     private static let log =
         Logger(subsystem: Bundle.module.bundleIdentifier!,
                category: "SplatRenderer")
-
+    
+    private var computeDepthsPipelineState: MTLComputePipelineState?
+    
     public struct ViewportDescriptor {
         public var viewport: MTLViewport
         public var projectionMatrix: simd_float4x4
@@ -617,24 +619,115 @@ public class SplatRenderer {
             // TODO: report error
         }
     }
+    
+    private func sortTaskGPU() {
+        // let startTime = Date()
+
+        // Allocate a GPU buffer for storing distances.
+        guard let distanceBuffer = device.makeBuffer(
+            length: MemoryLayout<Float>.size * splatCount,
+            options: .storageModeShared
+        ) else {
+            Self.log.error("Failed to create distance buffer.")
+            self.sorting = false
+            return
+        }
+
+        // Compute distances on CPU then copy to distanceBuffer.
+        let distancePtr = distanceBuffer.contents().bindMemory(to: Float.self, capacity: splatCount)
+        if Constants.sortByDistance {
+            for i in 0 ..< splatCount {
+                let splatPos = splatBuffer.values[i].position.simd
+                distancePtr[i] = (splatPos - cameraWorldPosition).lengthSquared
+            }
+        } else {
+            for i in 0 ..< splatCount {
+                let splatPos = splatBuffer.values[i].position.simd
+                distancePtr[i] = dot(splatPos, cameraWorldForward)
+            }
+        }
+    
+
+        // Allocate a GPU buffer for the ArgSort output indices
+        guard let indexOutputBuffer = device.makeBuffer(
+            length: MemoryLayout<Int32>.size * splatCount,
+            options: .storageModeShared
+        ) else {
+            Self.log.error("Failed to create output indices buffer.")
+            self.sorting = false
+            return
+        }
+
+        // Create command queue for MPSArgSort.
+        guard let commandQueue = device.makeCommandQueue() else {
+            Self.log.error("Failed to create command queue for MPSArgSort.")
+            self.sorting = false
+            return
+        }
+
+        // Run argsort, in decending order.
+        let argSort = MPSArgSort(dataType: .float32, descending: true)
+        argSort(commandQueue: commandQueue,
+                input: distanceBuffer,
+                output: indexOutputBuffer,
+                count: splatCount)
+
+        // Read back the sorted indices and reorder splats on the CPU.
+        let sortedIndices = indexOutputBuffer.contents().bindMemory(to: Int32.self, capacity: splatCount)
+
+        do {
+            try self.splatBufferPrime.setCapacity(splatCount)
+            self.splatBufferPrime.count = 0
+            for newIndex in 0 ..< splatCount {
+                let oldIndex = Int(sortedIndices[newIndex])
+                splatBufferPrime.append(splatBuffer, fromIndex: oldIndex)
+            }
+            swap(&splatBuffer, &splatBufferPrime)
+        } catch {
+            Self.log.error("Failed to set capacity or reorder: \(error)")
+        }
+
+//      let elapsed = Date().timeIntervalSince(startTime)
+//      Self.log.info("Sort time (GPU): \(elapsed) seconds")
+//      self.onSortComplete?(elapsed)
+        self.sorting = false
+    }
 
     // Sort splatBuffer (read-only), storing the results in splatBuffer (write-only) then swap splatBuffer and splatBufferPrime
-    public func resort() {
+    public func resort(useGPU: Bool = true) {
         guard !sorting else { return }
         sorting = true
         onSortStart?()
 
         let splatCount = splatBuffer.count
-
+        
         let cameraWorldForward = cameraWorldForward
         let cameraWorldPosition = cameraWorldPosition
+        
+//        // For benchmark.
+//        guard splatCount > 0 else {
+//            sorting = false
+//            let elapsed: TimeInterval = 0
+//            Self.log.info("Sort time (\(useGPU ? "GPU" : "CPU")): \(elapsed) seconds")
+//            onSortComplete?(elapsed)
+//            return
+//        }
 
         if forceSynchronousSorting {
-            sortTask()
+            if useGPU {
+                sortTaskGPU()
+            }
+            else {
+                sortTask()
+            }
         }
         else {
             Task(priority: .high) {
-                sortTask()
+                if useGPU {
+                    sortTaskGPU()
+                } else {
+                    sortTask()
+                }
             }
         }
     }
