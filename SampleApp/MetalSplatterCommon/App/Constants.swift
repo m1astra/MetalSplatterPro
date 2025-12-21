@@ -8,6 +8,6 @@ public enum Constants {
 #if !os(visionOS)
     public static let fovy = Angle(degrees: 65)
 #endif
-    public static let modelCenterZ: Float = -0.5
+    public static let modelCenterZ: Float = 0.0
 }
 

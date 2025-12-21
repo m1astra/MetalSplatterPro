@@ -103,7 +103,9 @@ struct MetalSplatterPlusApp: App {
         .handlesExternalEvents(
             matching: ["*"]
         )
+#if os(visionOS)
         .environment(\.openSplatWindow, openWindow)
+#endif
 #if os(macOS) || os(visionOS)
         .windowStyle(.plain)
 #endif

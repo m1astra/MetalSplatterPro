@@ -9,7 +9,7 @@ struct ContentView: View {
     let immersiveSpaceIsShown: Bool
 
 #if targetEnvironment(macCatalyst)
-    @Environment(\.openWindow) private var openWindow: (ModelIdentifier) -> Void
+    @Environment(\.openWindow) private var openWindow
 #elseif os(macOS)
     @Environment(\.openWindow) private var openWindow: (ModelIdentifier) -> Void
 #elseif os(iOS)
@@ -115,7 +115,11 @@ struct ContentView: View {
                             print(type.identifier)
                         }
                         
+#if os(visionOS)
                         openWindow(ModelIdentifier.gaussianSplat(url))
+#else
+                        openWindow(value: ModelIdentifier.gaussianSplat(url))
+#endif
                     case .failure:
                         break
                     }

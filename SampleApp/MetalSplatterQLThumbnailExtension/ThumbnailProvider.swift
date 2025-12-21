@@ -6,7 +6,7 @@ import MetalSplatter
 import Spatial
 import Foundation
 import simd
-import MetalSplatterCommon
+//import MetalSplatterCommon
 
 @objc(ThumbnailProvider)
 class ThumbnailProvider: QLThumbnailProvider {

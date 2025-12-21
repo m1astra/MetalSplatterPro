@@ -23,13 +23,11 @@
 		E7AC3D0A2EF652BF00C81E95 /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = E7AC3D092EF652BF00C81E95 /* SplatIO */; };
 		E7AC3D322EF7283C00C81E95 /* MetalSplatterCommon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7AC3D2C2EF7283C00C81E95 /* MetalSplatterCommon.framework */; };
 		E7AC3D332EF7283C00C81E95 /* MetalSplatterCommon.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E7AC3D2C2EF7283C00C81E95 /* MetalSplatterCommon.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
-		E7AC3D382EF7284D00C81E95 /* MetalSplatterCommon.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7AC3D2C2EF7283C00C81E95 /* MetalSplatterCommon.framework */; };
-		E7AC3D392EF7284D00C81E95 /* MetalSplatterCommon.framework in Embed Frameworks */ = {isa = PBXBuildFile; fileRef = E7AC3D2C2EF7283C00C81E95 /* MetalSplatterCommon.framework */; settings = {ATTRIBUTES = (CodeSignOnCopy, RemoveHeadersOnCopy, ); }; };
 		E7AC3D502EF729CE00C81E95 /* MetalSplatter in Frameworks */ = {isa = PBXBuildFile; productRef = E7AC3D4F2EF729CE00C81E95 /* MetalSplatter */; };
 		E7AC3D522EF729CE00C81E95 /* PLYIO in Frameworks */ = {isa = PBXBuildFile; productRef = E7AC3D512EF729CE00C81E95 /* PLYIO */; };
 		E7AC3D542EF729CE00C81E95 /* SampleBoxRenderer in Frameworks */ = {isa = PBXBuildFile; productRef = E7AC3D532EF729CE00C81E95 /* SampleBoxRenderer */; };
 		E7AC3D562EF729CE00C81E95 /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = E7AC3D552EF729CE00C81E95 /* SplatIO */; };
-		E7AC3D7F2EF73B7600C81E95 /* test.splat in Resources */ = {isa = PBXBuildFile; fileRef = E7AC3D7E2EF73B7600C81E95 /* test.splat */; };
+		E7AC3D7F2EF73B7600C81E95 /* test.splat in Resources */ = {isa = PBXBuildFile; fileRef = E7AC3D7E2EF73B7600C81E95 /* test.splat */; platformFilter = maccatalyst; };
 		E7AC3D902EF7409000C81E95 /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7AC3D8F2EF7409000C81E95 /* QuickLook.framework */; };
 		E7AC3D9C2EF7B70700C81E95 /* DataStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7AC3D9B2EF7B70400C81E95 /* DataStorage.swift */; };
 /* End PBXBuildFile section */
@@ -43,13 +41,6 @@
 			remoteInfo = MetalSplatterPreviewExtension;
 		};
 		E7AC3D302EF7283C00C81E95 /* PBXContainerItemProxy */ = {
-			isa = PBXContainerItemProxy;
-			containerPortal = 61E3FD7A2AE5CB0200032652 /* Project object */;
-			proxyType = 1;
-			remoteGlobalIDString = E7AC3D2B2EF7283C00C81E95;
-			remoteInfo = MetalSplatterCommon;
-		};
-		E7AC3D3A2EF7284D00C81E95 /* PBXContainerItemProxy */ = {
 			isa = PBXContainerItemProxy;
 			containerPortal = 61E3FD7A2AE5CB0200032652 /* Project object */;
 			proxyType = 1;
@@ -77,17 +68,6 @@
 			dstSubfolderSpec = 10;
 			files = (
 				E7AC3D332EF7283C00C81E95 /* MetalSplatterCommon.framework in Embed Frameworks */,
-			);
-			name = "Embed Frameworks";
-			runOnlyForDeploymentPostprocessing = 0;
-		};
-		E7AC3D3C2EF7284D00C81E95 /* Embed Frameworks */ = {
-			isa = PBXCopyFilesBuildPhase;
-			buildActionMask = 2147483647;
-			dstPath = "";
-			dstSubfolderSpec = 10;
-			files = (
-				E7AC3D392EF7284D00C81E95 /* MetalSplatterCommon.framework in Embed Frameworks */,
 			);
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
@@ -136,11 +116,23 @@
 			);
 			target = 617E50AF2B314BE200F99766 /* MetalSplatter SampleApp */;
 		};
+		E7AC3DA52EF7D0DF00C81E95 /* PBXFileSystemSynchronizedBuildFileExceptionSet */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				App/Constants.swift,
+				App/SplatDocument.swift,
+				Model/ModelIdentifier.swift,
+				Scene/PreviewRenderer.swift,
+				Util/MatrixMathUtil.swift,
+				Util/simd.swift,
+			);
+			target = E7AC3CF32EF651AD00C81E95 /* MetalSplatterQLThumbnailExtension */;
+		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		E7AC3CF72EF651AD00C81E95 /* MetalSplatterQLThumbnailExtension */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E7AC3CFE2EF651AD00C81E95 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = MetalSplatterQLThumbnailExtension; sourceTree = "<group>"; };
-		E7AC3D2D2EF7283C00C81E95 /* MetalSplatterCommon */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E7AC3D4B2EF7287900C81E95 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = MetalSplatterCommon; sourceTree = "<group>"; };
+		E7AC3D2D2EF7283C00C81E95 /* MetalSplatterCommon */ = {isa = PBXFileSystemSynchronizedRootGroup; exceptions = (E7AC3D4B2EF7287900C81E95 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, E7AC3DA52EF7D0DF00C81E95 /* PBXFileSystemSynchronizedBuildFileExceptionSet */, ); explicitFileTypes = {}; explicitFolders = (); path = MetalSplatterCommon; sourceTree = "<group>"; };
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -162,7 +154,6 @@
 			files = (
 				E7AC3D082EF652BF00C81E95 /* PLYIO in Frameworks */,
 				E7AC3CF62EF651AD00C81E95 /* QuickLookThumbnailing.framework in Frameworks */,
-				E7AC3D382EF7284D00C81E95 /* MetalSplatterCommon.framework in Frameworks */,
 				E7AC3D062EF652BF00C81E95 /* MetalSplatter in Frameworks */,
 				E7AC3D0A2EF652BF00C81E95 /* SplatIO in Frameworks */,
 				E7AC3D902EF7409000C81E95 /* QuickLook.framework in Frameworks */,
@@ -303,12 +294,10 @@
 				E7AC3CF02EF651AD00C81E95 /* Sources */,
 				E7AC3CF12EF651AD00C81E95 /* Frameworks */,
 				E7AC3CF22EF651AD00C81E95 /* Resources */,
-				E7AC3D3C2EF7284D00C81E95 /* Embed Frameworks */,
 			);
 			buildRules = (
 			);
 			dependencies = (
-				E7AC3D3B2EF7284D00C81E95 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
 				E7AC3CF72EF651AD00C81E95 /* MetalSplatterQLThumbnailExtension */,
@@ -460,17 +449,13 @@
 			target = E7AC3D2B2EF7283C00C81E95 /* MetalSplatterCommon */;
 			targetProxy = E7AC3D302EF7283C00C81E95 /* PBXContainerItemProxy */;
 		};
-		E7AC3D3B2EF7284D00C81E95 /* PBXTargetDependency */ = {
-			isa = PBXTargetDependency;
-			target = E7AC3D2B2EF7283C00C81E95 /* MetalSplatterCommon */;
-			targetProxy = E7AC3D3A2EF7284D00C81E95 /* PBXContainerItemProxy */;
-		};
 /* End PBXTargetDependency section */
 
 /* Begin XCBuildConfiguration section */
 		617E50C22B314BE300F99766 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "MetalSplatter SampleApp.entitlements";
 				CODE_SIGN_STYLE = Automatic;
@@ -489,6 +474,8 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MetalSplatterPlus;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -521,6 +508,7 @@
 		617E50C32B314BE300F99766 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_ENTITLEMENTS = "MetalSplatter SampleApp.entitlements";
 				CODE_SIGN_STYLE = Automatic;
@@ -539,6 +527,8 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = MetalSplatterPlus;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
 				INFOPLIST_KEY_NSCameraUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;

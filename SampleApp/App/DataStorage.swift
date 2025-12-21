@@ -100,9 +100,11 @@ class DataStorage {
     static func storeDataForId(_ id: String) {
         print("Storing data for ID", id)
         var stored = StoredPhotoPose()
+#if os(visionOS)
         stored.rotation = VisionSceneRenderer.handRotationMat.as4Array()
         stored.translation = VisionSceneRenderer.handTranslationMat.as4Array()
         stored.scale = simd_float3(x: VisionSceneRenderer.handScaleMat.columns.0.x, y: VisionSceneRenderer.handScaleMat.columns.1.y, z: VisionSceneRenderer.handScaleMat.columns.2.z)
+#endif
         poseDatabase.poses[id] = stored
     }
 }
