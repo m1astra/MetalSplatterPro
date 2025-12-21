@@ -31,6 +31,7 @@
 		E7AC3D562EF729CE00C81E95 /* SplatIO in Frameworks */ = {isa = PBXBuildFile; productRef = E7AC3D552EF729CE00C81E95 /* SplatIO */; };
 		E7AC3D7F2EF73B7600C81E95 /* test.splat in Resources */ = {isa = PBXBuildFile; fileRef = E7AC3D7E2EF73B7600C81E95 /* test.splat */; };
 		E7AC3D902EF7409000C81E95 /* QuickLook.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E7AC3D8F2EF7409000C81E95 /* QuickLook.framework */; };
+		E7AC3D9C2EF7B70700C81E95 /* DataStorage.swift in Sources */ = {isa = PBXBuildFile; fileRef = E7AC3D9B2EF7B70400C81E95 /* DataStorage.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -110,6 +111,7 @@
 		E7AC3D822EF73CD100C81E95 /* QuickLookThumbnailing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookThumbnailing.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk/System/Library/PrivateFrameworks/QuickLookThumbnailing.framework; sourceTree = DEVELOPER_DIR; };
 		E7AC3D8F2EF7409000C81E95 /* QuickLook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLook.framework; path = Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.1.sdk/System/iOSSupport/System/Library/Frameworks/QuickLook.framework; sourceTree = DEVELOPER_DIR; };
 		E7AC3D992EF7854B00C81E95 /* MetalSplatter SampleApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = "MetalSplatter SampleApp.entitlements"; sourceTree = "<group>"; };
+		E7AC3D9B2EF7B70400C81E95 /* DataStorage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DataStorage.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -202,6 +204,7 @@
 			isa = PBXGroup;
 			children = (
 				61791DF62B41551F00302B57 /* MetalSplatterPlusApp.swift */,
+				E7AC3D9B2EF7B70400C81E95 /* DataStorage.swift */,
 			);
 			path = App;
 			sourceTree = "<group>";
@@ -424,6 +427,7 @@
 				610347DA2B46874500693CE3 /* ContentView.swift in Sources */,
 				610347DB2B46875700693CE3 /* VisionSceneRenderer.swift in Sources */,
 				610347D92B46864500693CE3 /* MetalSplatterPlusApp.swift in Sources */,
+				E7AC3D9C2EF7B70700C81E95 /* DataStorage.swift in Sources */,
 				61791DCF2B41544300302B57 /* Assets.xcassets in Sources */,
 				610347DC2B46875A00693CE3 /* ContentStageConfiguration.swift in Sources */,
 			);

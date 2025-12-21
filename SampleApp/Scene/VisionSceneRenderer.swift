@@ -79,13 +79,15 @@ class VisionSceneRenderer {
     var startHandRotationMat = matrix_identity_float4x4
     var startHandTranslationMat = matrix_identity_float4x4
     var startHandScaleMat = matrix_identity_float4x4
-    var handRotationMat = matrix_identity_float4x4
-    var handTranslationMat = matrix_identity_float4x4
-    var handScaleMat = matrix_identity_float4x4
+    static var handRotationMat = matrix_identity_float4x4
+    static var handTranslationMat = matrix_identity_float4x4
+    static var handScaleMat = matrix_identity_float4x4
     var lastAnySinglePinching = false
     var lastAnyMultiPinching = false
     var modeSwitchHysteresis = 0.0
 
+    var loadedUrl: URL? = nil
+    var loadedUrlId: String? = nil
     let arSession: ARKitSession
     let worldTracking: WorldTrackingProvider
 
@@ -117,159 +119,30 @@ class VisionSceneRenderer {
             try await splat.read(from: url)
             modelRenderer = splat
             
+            DataStorage.loadDB()
+            let data = DataStorage.getDataFor(url)
+            VisionSceneRenderer.handRotationMat = simd_float4x4(data.rotation)
+            VisionSceneRenderer.handTranslationMat = simd_float4x4(data.translation)
+            VisionSceneRenderer.handScaleMat = matrix_identity_float4x4
+            VisionSceneRenderer.handScaleMat.columns.0.x = data.scale.x
+            VisionSceneRenderer.handScaleMat.columns.1.y = data.scale.y
+            VisionSceneRenderer.handScaleMat.columns.2.z = data.scale.z
+            loadedUrl = url
+            loadedUrlId = getStableId(for: url)
+            /*print(VisionSceneRenderer.handRotationMat)
+            print(VisionSceneRenderer.handTranslationMat)
+            print(VisionSceneRenderer.handScaleMat)*/
             
-    
-#if true
-            print("Trying to preview:", url)
-            var modelRenderer: SplatRenderer? = nil
-            do {
-                let splat = try SplatRenderer(device: device,
-                                          colorFormat: .bgra8Unorm_srgb,
-                                          depthFormat: .depth32Float,
-                                          sampleCount: 1,
-                                          maxViewCount: 1,
-                                          maxSimultaneousRenders: 1)
-                try await splat.read(from: url)
-                modelRenderer = splat
-            }
-            catch {
-                
-            }
-
-            let size = CGSize(width: 256, height: 256)
-
-            let drawing: (CGContext) -> Bool = { (ctx: CGContext) in
-                // --- 1. Create offscreen color & depth textures ---
-                let colorDesc = MTLTextureDescriptor.texture2DDescriptor(
-                    pixelFormat: .bgra8Unorm_srgb,
-                    width: Int(size.width),
-                    height: Int(size.height),
-                    mipmapped: false
-                )
-                colorDesc.usage = [.renderTarget, .shaderRead]
-                guard let colorTexture = self.device.makeTexture(descriptor: colorDesc) else {
-                    print("Failed colorTexture")
-                    return false
-                }
-
-                let depthDesc = MTLTextureDescriptor.texture2DDescriptor(
-                    pixelFormat: .depth32Float,
-                    width: Int(size.width),
-                    height: Int(size.height),
-                    mipmapped: false
-                )
-                depthDesc.usage = [.renderTarget, .shaderRead]
-                depthDesc.storageMode = .private
-                guard let depthTexture = self.device.makeTexture(descriptor: depthDesc) else {
-                    print("Failed depthTexture")
-                    return false
-                }
-
-                // --- 2. Prepare viewport / render pass descriptor ---
-                var viewport = MTLViewport(originX: 0, originY: 0,
-                                           width: Double(size.width),
-                                           height: Double(size.height),
-                                           znear: 0, zfar: 1)
-                
-                let translationMatrix = matrix4x4_translation(0.0, 0.0, Constants.modelCenterZ)
-                // Turn common 3D GS PLY files rightside-up. This isn't generally meaningful, it just
-                // happens to be a useful default for the most common datasets at the moment.
-                let commonUpCalibration = matrix4x4_rotation(radians: .pi, axis: SIMD3<Float>(0, 0, 1))
-
-                let simdDeviceAnchor = matrix_identity_float4x4
-                
-                let rotationMatrix = matrix4x4_rotation(radians: .pi,
-                                                        axis: Constants.rotationAxis)
-                let projectionMatrix = ProjectiveTransform3D(leftTangent: Double(1.0),
-                                                         rightTangent: Double(1.0),
-                                                         topTangent: Double(1.0),
-                                                         bottomTangent: Double(1.0),
-                                                         nearZ: 0.1,
-                                                         farZ: 100.0,
-                                                         reverseZ: true)
-                let screenSize = SIMD2(x: Int(viewport.width),
-                                           y: Int(viewport.height))
-
-                let modelViewport = SplatRenderer.ViewportDescriptor(viewport: viewport,
-                                                   projectionMatrix: .init(projectionMatrix),
-                                                   viewMatrix: translationMatrix * rotationMatrix * commonUpCalibration,
-                                                   screenSize: screenSize)
-
-                for i in 0..<6 {
-                    guard let commandBuffer = self.commandQueue.makeCommandBuffer() else {
-                        print("Failed commandBuffer")
-                        return false
-                    }
-                    
-                    // --- 3. Call your existing modelRenderer ---
-                    do {
-                        try? modelRenderer?.render(
-                            viewports: [modelViewport],
-                            colorTexture: colorTexture,
-                            colorStoreAction: .store,
-                            depthTexture: depthTexture,
-                            rasterizationRateMap: nil,
-                            renderTargetArrayLength: 1,
-                            to: commandBuffer
-                        )
-                    }
-                    catch {
-                        print("Failed in modelRenderer")
-                    }
-
-                    commandBuffer.commit()
-                    commandBuffer.waitUntilCompleted()
-                }
-
-                // --- 4. Read back the color texture into CGContext ---
-                let bytesPerPixel = 4
-                let bytesPerRow = bytesPerPixel * Int(size.width)
-                let region = MTLRegion(origin: MTLOrigin(x: 0, y: 0, z: 0),
-                                       size: MTLSize(width: Int(size.width), height: Int(size.height), depth: 1))
-                let pixelData = UnsafeMutableRawPointer.allocate(byteCount: bytesPerRow * Int(size.height), alignment: 1)
-                defer { pixelData.deallocate() }
-
-                colorTexture.getBytes(pixelData,
-                                      bytesPerRow: bytesPerRow,
-                                      from: region,
-                                      mipmapLevel: 0)
-
-                let colorSpace = CGColorSpaceCreateDeviceRGB()
-                guard let bitmapCtx = CGContext(data: pixelData,
-                                                width: Int(size.width),
-                                                height: Int(size.height),
-                                                bitsPerComponent: 8,
-                                                bytesPerRow: bytesPerRow,
-                                                space: colorSpace,
-                                                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)
-                else {
-                    print("Failed in bitmapCtx")
-                    return false
-                }
-
-                // Draw the Metal bitmap into the Quick Look CGContext
-                ctx.draw(bitmapCtx.makeImage()!, in: CGRect(origin: .zero, size: size))
-                print("Success!")
-                return true
-            }
-            
-            if #available(macCatalyst 26.0, *) {
-                let ctx = CGContext(width: 256, height: 256, auxiliaryInfo: .init())!
-                drawing(ctx)
-            } else {
-                // Fallback on earlier versions
-            }
-            
-#endif
             url.stopAccessingSecurityScopedResource()
         case .none:
             break
         default:
             break
         }
+        
     }
 
-    func startRenderLoop() {
+    func startRenderLoop(_ onTeardown: @escaping () -> Void) {
         Task {
             do {
                 try await arSession.run([worldTracking])
@@ -278,7 +151,7 @@ class VisionSceneRenderer {
             }
 
             let renderThread = Thread {
-                self.renderLoop()
+                self.renderLoop(onTeardown)
             }
             renderThread.name = "Render Thread"
             renderThread.start()
@@ -286,7 +159,7 @@ class VisionSceneRenderer {
     }
 
     private func viewports(drawable: LayerRenderer.Drawable, deviceAnchor: DeviceAnchor?) -> [SplatRenderer.ViewportDescriptor] {
-        let translationMatrix = matrix4x4_translation(0.0, firstHeadHeight, Constants.modelCenterZ) * handTranslationMat * handScaleMat
+        let translationMatrix = matrix4x4_translation(0.0, firstHeadHeight, Constants.modelCenterZ) * VisionSceneRenderer.handTranslationMat * VisionSceneRenderer.handScaleMat
         // Turn common 3D GS PLY files rightside-up. This isn't generally meaningful, it just
         // happens to be a useful default for the most common datasets at the moment.
         let commonUpCalibration = matrix4x4_rotation(radians: .pi, axis: SIMD3<Float>(0, 0, 1))
@@ -295,7 +168,7 @@ class VisionSceneRenderer {
         VisionTracking.shared.lastDeviceAnchor = simdDeviceAnchor
         
         let rotationMatrix = matrix4x4_rotation(radians: Float(rotation.radians) + .pi,
-                                                axis: Constants.rotationAxis) * handRotationMat
+                                                axis: Constants.rotationAxis) * VisionSceneRenderer.handRotationMat
 
         return drawable.views.enumerated().map { (i, view) in
             let userViewpointMatrix = (simdDeviceAnchor * view.transform).inverse
@@ -332,9 +205,9 @@ class VisionSceneRenderer {
         }
         else if VisionTracking.shared.anySinglePinching {
             if !lastAnySinglePinching {
-                self.startHandRotationMat = self.handRotationMat
-                self.startHandTranslationMat = self.handTranslationMat
-                self.startHandScaleMat = self.handScaleMat
+                self.startHandRotationMat = VisionSceneRenderer.handRotationMat
+                self.startHandTranslationMat = VisionSceneRenderer.handTranslationMat
+                self.startHandScaleMat = VisionSceneRenderer.handScaleMat
                 
                 VisionTracking.shared.anyPinchStartPosition = VisionTracking.shared.anyPinchCurrentPosition
                 VisionTracking.shared.anyPinchStartAngle = VisionTracking.shared.anyPinchCurrentAngle
@@ -343,7 +216,7 @@ class VisionSceneRenderer {
         
             let pinchDelta = (VisionTracking.shared.anyPinchCurrentAngle * VisionTracking.shared.anyPinchStartAngle.inverse).flipYaw()
         
-            self.handRotationMat = simd_float4x4(pinchDelta) * self.startHandRotationMat
+            VisionSceneRenderer.handRotationMat = simd_float4x4(pinchDelta) * self.startHandRotationMat
             
             let headsetForward = normalize(-VisionTracking.shared.lastDeviceAnchor.columns.2.asFloat3())
             let flatForward = simd_float3(x: headsetForward.x, y: 0, z: headsetForward.z)
@@ -356,7 +229,7 @@ class VisionSceneRenderer {
             let amplification: Float = 5.0
 
             let amplifiedForward = forwardComponent * amplification
-            let scaledDist = simd_distance(startHandTranslationMat.columns.3.asFloat3(), self.handTranslationMat.columns.3.asFloat3()) * (forwardAmount < 0.0 ? -1.0 : 1.0)
+            let scaledDist = simd_distance(startHandTranslationMat.columns.3.asFloat3(), VisionSceneRenderer.handTranslationMat.columns.3.asFloat3()) * (forwardAmount < 0.0 ? -1.0 : 1.0)
             let scaledDistSqInv = scaledDist > 0 ? (1.0 / (scaledDist * scaledDist)) : 1.0
             let exponentialAmplifiedForward = forwardComponent * scaledDist
             let scaledHandTranslation =
@@ -364,19 +237,19 @@ class VisionSceneRenderer {
                 amplifiedForward
             
             let curScale = max(0.1, 1.0 + scaledDist)
-            self.handTranslationMat = scaledHandTranslation.asFloat4x4() * self.startHandTranslationMat
-            self.handScaleMat = simd_float4x4(curScale) * self.startHandScaleMat
+            VisionSceneRenderer.handTranslationMat = scaledHandTranslation.asFloat4x4() * self.startHandTranslationMat
+            VisionSceneRenderer.handScaleMat = simd_float4x4(curScale) * self.startHandScaleMat
             
         
             
-            //self.startHandRotationMat = self.handRotationMat
+            //self.startHandRotationMat = VisionSceneRenderer.handRotationMat
             //VisionTracking.shared.anyPinchStartAngle = VisionTracking.shared.anyPinchCurrentAngle
         }
         else if VisionTracking.shared.anyMultiPinching {
             if !lastAnyMultiPinching {
-                self.startHandRotationMat = self.handRotationMat
-                self.startHandTranslationMat = self.handTranslationMat
-                self.startHandScaleMat = self.handScaleMat
+                self.startHandRotationMat = VisionSceneRenderer.handRotationMat
+                self.startHandTranslationMat = VisionSceneRenderer.handTranslationMat
+                self.startHandScaleMat = VisionSceneRenderer.handScaleMat
                 
                 VisionTracking.shared.rightPinchStartPosition = VisionTracking.shared.rightPinchCurrentPosition
                 VisionTracking.shared.rightPinchStartAngle = VisionTracking.shared.rightPinchCurrentAngle
@@ -399,7 +272,7 @@ class VisionSceneRenderer {
                 let angle = acos(vecDot.clamp(-1.0, 1.0))
                 let deltaRot = simd_quatf(angle: -angle, axis: axis / axisLen).inverse.flipYaw()
                 
-                self.handRotationMat = simd_float4x4(deltaRot) * self.startHandRotationMat
+                VisionSceneRenderer.handRotationMat = simd_float4x4(deltaRot) * self.startHandRotationMat
             }
             */
             
@@ -418,7 +291,7 @@ class VisionSceneRenderer {
             let deltaYaw = currYaw - prevYaw
             let deltaRot = simd_quatf(angle: deltaYaw, axis: [0, 1, 0])
 
-            self.handRotationMat = simd_float4x4(deltaRot) * self.startHandRotationMat
+            VisionSceneRenderer.handRotationMat = simd_float4x4(deltaRot) * self.startHandRotationMat
             
             let averageHandPositionStart = (VisionTracking.shared.leftPinchStartPosition + VisionTracking.shared.rightPinchStartPosition) * 0.5
             let averageHandPositionCurrent = (VisionTracking.shared.leftPinchCurrentPosition + VisionTracking.shared.rightPinchCurrentPosition) * 0.5
@@ -442,30 +315,30 @@ class VisionSceneRenderer {
             }
             let scale = currentHandDist / startHandDist
             
-            let headsetRotatedByModel = VisionTracking.shared.lastDeviceAnchor * self.handRotationMat
+            let headsetRotatedByModel = VisionTracking.shared.lastDeviceAnchor * VisionSceneRenderer.handRotationMat
             let headsetForward = -headsetRotatedByModel.columns.2.asFloat3()
             let flatForward = simd_float3(x: headsetForward.x, y: 0, z: headsetForward.z)
-            let curModelScale = self.handScaleMat.columns.0.x
+            let curModelScale = VisionSceneRenderer.handScaleMat.columns.0.x
             
-            self.handTranslationMat = ((averageHandPositionCurrent - averageHandPositionStart) * 4.0 * curModelScale).asFloat4x4() * self.startHandTranslationMat
-            self.handScaleMat = simd_float4x4(scale) * self.startHandScaleMat
+            VisionSceneRenderer.handTranslationMat = ((averageHandPositionCurrent - averageHandPositionStart) * 4.0 * curModelScale).asFloat4x4() * self.startHandTranslationMat
+            VisionSceneRenderer.handScaleMat = simd_float4x4(scale) * self.startHandScaleMat
         }
         
         // Prevent the model from imploding
-        if self.handScaleMat.columns.0.x == 0.0 {
-            self.handScaleMat = matrix_identity_float4x4
+        if VisionSceneRenderer.handScaleMat.columns.0.x == 0.0 {
+            VisionSceneRenderer.handScaleMat = matrix_identity_float4x4
         }
-        if self.handScaleMat.columns.0.x <= 0.1 {
-            self.handScaleMat = matrix_identity_float4x4 * 0.1
+        if VisionSceneRenderer.handScaleMat.columns.0.x <= 0.1 {
+            VisionSceneRenderer.handScaleMat = matrix_identity_float4x4 * 0.1
         }
-        self.handScaleMat.columns.3 = simd_float4(x: 0.0, y: 0.0, z: 0.0, w: 1.0)
+        VisionSceneRenderer.handScaleMat.columns.3 = simd_float4(x: 0.0, y: 0.0, z: 0.0, w: 1.0)
         
-        //print(self.handScaleMat.columns.0.x)
+        //print(VisionSceneRenderer.handScaleMat.columns.0.x)
         
         if VisionTracking.shared.anySinglePinching {
-            self.startHandRotationMat = self.handRotationMat
-            self.startHandTranslationMat = self.handTranslationMat
-            self.startHandScaleMat = self.handScaleMat
+            self.startHandRotationMat = VisionSceneRenderer.handRotationMat
+            self.startHandTranslationMat = VisionSceneRenderer.handTranslationMat
+            self.startHandScaleMat = VisionSceneRenderer.handScaleMat
             
             VisionTracking.shared.anyPinchStartPosition = VisionTracking.shared.anyPinchCurrentPosition
             VisionTracking.shared.anyPinchStartAngle = VisionTracking.shared.anyPinchCurrentAngle
@@ -515,12 +388,12 @@ class VisionSceneRenderer {
             self.lastPrintQuality = CACurrentMediaTime()
             
             if self.currentRenderQuality < 0.5 {
-                if let splat = modelRenderer as? SplatRenderer {
-                    splat.highQualityDepth = false
+                if let splat = modelRenderer {
+                    splat.highQualityDepth = true
                 }
             }
             else {
-                if let splat = modelRenderer as? SplatRenderer {
+                if let splat = modelRenderer {
                     splat.highQualityDepth = true
                 }
             }
@@ -772,7 +645,7 @@ class VisionSceneRenderer {
         }
     }
 
-    func renderLoop() {
+    func renderLoop(_ onTeardown: @escaping () -> Void) {
         layerRenderer.waitUntilRunning()
         
         layerRenderer.onSpatialEvent = { eventCollection in
@@ -781,14 +654,35 @@ class VisionSceneRenderer {
             }
         }
     
+        //let immersiveStatus = ImmersiveStatus()
         while true {
             if layerRenderer.state == .invalidated {
                 Self.log.warning("Layer is invalidated")
+                //immersiveStatus.isShown = false
+                if let id = loadedUrlId {
+                    DataStorage.storeDataForId(id)
+                    
+                    /*print(VisionSceneRenderer.handRotationMat)
+                    print(VisionSceneRenderer.handTranslationMat)
+                    print(VisionSceneRenderer.handScaleMat)*/
+                }
+                onTeardown()
                 return
             } else if layerRenderer.state == .paused {
                 layerRenderer.waitUntilRunning()
+                
+                if let id = loadedUrlId {
+                    DataStorage.storeDataForId(id)
+                    
+                    /*print(VisionSceneRenderer.handRotationMat)
+                    print(VisionSceneRenderer.handTranslationMat)
+                    print(VisionSceneRenderer.handScaleMat)*/
+                }
+                onTeardown()
+                //immersiveStatus.isShown = false
                 continue
             } else {
+                //immersiveStatus.isShown = true
                 autoreleasepool {
                     self.renderFrame()
                 }

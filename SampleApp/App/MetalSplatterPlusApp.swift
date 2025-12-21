@@ -22,8 +22,28 @@ struct TransferItem: Transferable, Equatable, Sendable {
     }
 }
 
+// Define the type alias for the function signature
+typealias OpenSplatWindowActionType = (ModelIdentifier) -> Void
+
+struct OpenSplatWindowActionKey: EnvironmentKey {
+    static var defaultValue: OpenSplatWindowActionType = { _ in
+        print("Default window open")
+    }
+}
+
+extension EnvironmentValues {
+    var openSplatWindow: OpenSplatWindowActionType {
+        get { self[OpenSplatWindowActionKey.self] }
+        set { self[OpenSplatWindowActionKey.self] = newValue }
+    }
+}
+
 @main
 struct MetalSplatterPlusApp: App {
+
+    static var immersiveSpaceIsReallyShown = false
+    @State var immersiveSpaceIsShown = false
+    @State var immersiveSpaceIsAppeared = false
 
 #if targetEnvironment(macCatalyst)
     @Environment(\.openWindow) private var openWindow
@@ -38,8 +58,7 @@ struct MetalSplatterPlusApp: App {
 #elseif os(visionOS)
     @Environment(\.openImmersiveSpace) var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
-
-    @State var immersiveSpaceIsShown = false
+    @Environment(\.scenePhase) private var scenePhase
 
     private func openWindow(value: ModelIdentifier) {
         Task {
@@ -47,6 +66,7 @@ struct MetalSplatterPlusApp: App {
             case .opened:
                 immersiveSpaceIsShown = true
             case .error, .userCancelled:
+                immersiveSpaceIsShown = false
                 break
             @unknown default:
                 break
@@ -57,7 +77,7 @@ struct MetalSplatterPlusApp: App {
 
     var body: some Scene {
         WindowGroup("MetalSplatterPlus", id: "main") {
-            ContentView()
+            ContentView(immersiveSpaceIsShown: immersiveSpaceIsShown)
             .onOpenURL { url in
                 print("OPEN URL:", url)
                 openWindow(value: ModelIdentifier.gaussianSplat(url))
@@ -83,6 +103,7 @@ struct MetalSplatterPlusApp: App {
         .handlesExternalEvents(
             matching: ["*"]
         )
+        .environment(\.openSplatWindow, openWindow)
 #if os(macOS) || os(visionOS)
         .windowStyle(.plain)
 #endif
@@ -117,11 +138,67 @@ struct MetalSplatterPlusApp: App {
                     } catch {
                         print("Error loading model: \(error.localizedDescription)")
                     }
-                    renderer.startRenderLoop()
+                    renderer.startRenderLoop() {
+                        immersiveSpaceIsAppeared = false
+                        immersiveSpaceIsShown = false
+                        
+                        DataStorage.saveDB()
+                    }
+                }
+            }
+            .onAppear() {
+                print("Immersive space appeared")
+                immersiveSpaceIsAppeared = true
+                immersiveSpaceIsShown = true
+            }
+            .onDisappear() {
+                print("Immersive space disappeared")
+                immersiveSpaceIsAppeared = false
+                immersiveSpaceIsShown = false
+            }
+            .onChange(of: scenePhase) {
+                switch scenePhase {
+                case .background:
+                    print("Layer is backgrounded")
+                    break
+                case .inactive:
+                    print("Layer is inactive")
+                    break
+                case .active:
+                    print("Layer is active")
+                    break
+                @unknown default:
+                    break
                 }
             }
         }
         .immersionStyle(selection: .constant(immersionStyle), in: immersionStyle)
+        .onChange(of: scenePhase) {
+            switch scenePhase {
+            case .background:
+                print("Scene is backgrounded")
+                
+                DataStorage.saveDB()
+                break
+            case .inactive:
+                print("Scene is inactive")
+                immersiveSpaceIsShown = false
+                DataStorage.saveDB()
+                break
+            case .active:
+                print("Scene is active")
+                if immersiveSpaceIsAppeared {
+                    immersiveSpaceIsShown = true
+                }
+                break
+            @unknown default:
+                break
+            }
+        }
+        .onChange(of: MetalSplatterPlusApp.immersiveSpaceIsReallyShown) {
+            print("immersiveSpaceIsReallyShown changed", MetalSplatterPlusApp.immersiveSpaceIsReallyShown)
+            immersiveSpaceIsShown = MetalSplatterPlusApp.immersiveSpaceIsReallyShown
+        }
 #endif // os(visionOS)
     }
 

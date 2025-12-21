@@ -112,6 +112,15 @@ public extension simd_float4x4
         }
         return self
     }
+    
+    func as4Array() -> [simd_float4] {
+        return [
+            self.columns.0,
+            self.columns.1,
+            self.columns.2,
+            self.columns.3
+        ]
+    }
 }
 
 public extension simd_quatf

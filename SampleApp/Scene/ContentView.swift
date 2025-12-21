@@ -5,36 +5,23 @@ import QuickLook
 
 struct ContentView: View {
     @State private var isPickingFile = false
+    
+    let immersiveSpaceIsShown: Bool
 
 #if targetEnvironment(macCatalyst)
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openWindow) private var openWindow: (ModelIdentifier) -> Void
 #elseif os(macOS)
-    @Environment(\.openWindow) private var openWindow
+    @Environment(\.openWindow) private var openWindow: (ModelIdentifier) -> Void
 #elseif os(iOS)
     @State private var navigationPath = NavigationPath()
 
-    private func openWindow(value: ModelIdentifier) {
+    private func openWindow(_ value: ModelIdentifier) {
         navigationPath.append(value)
     }
 #elseif os(visionOS)
     @Environment(\.openImmersiveSpace) var openImmersiveSpace
     @Environment(\.dismissImmersiveSpace) var dismissImmersiveSpace
-
-    @State var immersiveSpaceIsShown = false
-
-    private func openWindow(value: ModelIdentifier) {
-        Task {
-            switch await openImmersiveSpace(value: value) {
-            case .opened:
-                immersiveSpaceIsShown = true
-            case .error, .userCancelled:
-                immersiveSpaceIsShown = false
-                break
-            @unknown default:
-                break
-            }
-        }
-    }
+    @Environment(\.openSplatWindow) var openWindow: (ModelIdentifier) -> Void
 #endif
 
     private let fileURL = Bundle.main.url(forResource: "test", withExtension: "splat")
@@ -81,6 +68,14 @@ struct ContentView: View {
     @ViewBuilder
     var mainView: some View {
         VStack {
+#if os(visionOS)
+        VStack {
+            //Text("MetalSplatterPlus")
+        }
+        .glassBackgroundEffect()
+        .frame(minWidth: 650, maxWidth: 650, minHeight: 650, maxHeight: 650)
+#endif
+        VStack {
             Text("MetalSplatterPlus")
             .font(.system(size: 20, weight: .bold))
 
@@ -91,9 +86,9 @@ struct ContentView: View {
                 .padding()
                 .buttonStyle(.borderedProminent)
                 .disabled(isPickingFile)
-    #if os(visionOS)
+#if os(visionOS)
                 .disabled(immersiveSpaceIsShown)
-    #endif
+#endif
                 .fileImporter(isPresented: $isPickingFile,
                               allowedContentTypes: [
                                 UTType(filenameExtension: "ply")!,
@@ -120,7 +115,7 @@ struct ContentView: View {
                             print(type.identifier)
                         }
                         
-                        openWindow(value: ModelIdentifier.gaussianSplat(url))
+                        openWindow(ModelIdentifier.gaussianSplat(url))
                     case .failure:
                         break
                     }
@@ -130,7 +125,16 @@ struct ContentView: View {
                 Button("Dismiss Immersive Space") {
                     Task {
                         await dismissImmersiveSpace()
-                        immersiveSpaceIsShown = false
+                        //ImmersiveStatus().isShown = false
+                    }
+                }
+                .disabled(!immersiveSpaceIsShown)
+                
+                Button("Reset") {
+                    Task {
+                        VisionSceneRenderer.handRotationMat = matrix_identity_float4x4
+                        VisionSceneRenderer.handTranslationMat = matrix_identity_float4x4
+                        VisionSceneRenderer.handScaleMat = matrix_identity_float4x4
                     }
                 }
                 .disabled(!immersiveSpaceIsShown)
@@ -180,8 +184,8 @@ struct ContentView: View {
         }
         .frame(minWidth: 650, maxWidth: 650)
 #if os(visionOS)
-        .glassBackgroundEffect()
+        //.glassBackgroundEffect()
 #endif
     }
-        
+    }
 }

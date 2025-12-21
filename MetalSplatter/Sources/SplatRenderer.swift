@@ -22,7 +22,7 @@ public class SplatRenderer {
         // uses only indexing (with a significant memory penalty for th elarge index array, and a small performance penalty
         // because that can't be cached as easiliy). Anywhere within an order of magnitude (or more?) of 1k seems to be the sweet spot,
         // with effectively no memory penalty compated to instancing, and slightly better performance than even using all indexing.
-        static let maxIndexedSplatCount = 1024
+        static let maxIndexedSplatCount = 4096*4
 
         static let tileSize = MTLSize(width: 32, height: 32, depth: 1)
     }
@@ -694,7 +694,7 @@ public class SplatRenderer {
     }
 
     // Sort splatBuffer (read-only), storing the results in splatBuffer (write-only) then swap splatBuffer and splatBufferPrime
-    public func resort(useGPU: Bool = true) {
+    public func resort(useGPU: Bool = false) {
         guard !sorting else { return }
         sorting = true
         onSortStart?()
