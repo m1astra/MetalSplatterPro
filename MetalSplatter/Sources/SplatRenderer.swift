@@ -116,6 +116,11 @@ public class SplatRenderer {
      High-quality depth takes longer, but results in a continuous, more-representative depth buffer result, which is useful for reducing artifacts during Vision Pro's frame reprojection.
      */
     public var highQualityDepth: Bool = true
+    public var forceSynchronousSorting: Bool = false
+    public var forceSkipNumPoints: Int = 0
+    public var forceMaximumNumPoints: Int = 0
+    public var numPoints: Int = 0
+    public var renderingPoints: Int = 0
 
     private var writeDepth: Bool {
         depthFormat != .invalid
@@ -225,7 +230,9 @@ public class SplatRenderer {
 
     public func read(from url: URL) async throws {
         var newPoints = SplatMemoryBuffer()
-        try await newPoints.read(from: try AutodetectSceneReader(url))
+        try await newPoints.read(from: try AutodetectSceneReader(url), forceSkipNumPoints, forceMaximumNumPoints)
+        self.numPoints = newPoints.numPoints
+        self.renderingPoints = newPoints.points.count
         try add(newPoints.points)
     }
 
@@ -568,56 +575,67 @@ public class SplatRenderer {
 
         renderEncoder.endEncoding()
     }
+    
+    private func sortTask() {
+        let sortStartTime = Date()
+        
+        defer {
+            sorting = false
+            onSortComplete?(-sortStartTime.timeIntervalSinceNow)
+        }
+
+        if orderAndDepthTempSort.count != splatCount {
+            orderAndDepthTempSort = Array(repeating: SplatIndexAndDepth(index: .max, depth: 0), count: splatCount)
+        }
+
+        if Constants.sortByDistance {
+            for i in 0..<splatCount {
+                orderAndDepthTempSort[i].index = UInt32(i)
+                let splatPosition = splatBuffer.values[i].position.simd
+                orderAndDepthTempSort[i].depth = (splatPosition - cameraWorldPosition).lengthSquared
+            }
+        } else {
+            for i in 0..<splatCount {
+                orderAndDepthTempSort[i].index = UInt32(i)
+                let splatPosition = splatBuffer.values[i].position.simd
+                orderAndDepthTempSort[i].depth = dot(splatPosition, cameraWorldForward)
+            }
+        }
+
+        orderAndDepthTempSort.sort { $0.depth > $1.depth }
+
+        do {
+            try splatBufferPrime.setCapacity(splatCount)
+            splatBufferPrime.count = 0
+            for newIndex in 0..<orderAndDepthTempSort.count {
+                let oldIndex = Int(orderAndDepthTempSort[newIndex].index)
+                splatBufferPrime.append(splatBuffer, fromIndex: oldIndex)
+            }
+
+            swap(&splatBuffer, &splatBufferPrime)
+            try splatBufferPrime.setCapacity(0)
+        } catch {
+            // TODO: report error
+        }
+    }
 
     // Sort splatBuffer (read-only), storing the results in splatBuffer (write-only) then swap splatBuffer and splatBufferPrime
     public func resort() {
         guard !sorting else { return }
         sorting = true
         onSortStart?()
-        let sortStartTime = Date()
 
         let splatCount = splatBuffer.count
 
         let cameraWorldForward = cameraWorldForward
         let cameraWorldPosition = cameraWorldPosition
 
-        Task(priority: .high) {
-            defer {
-                sorting = false
-                onSortComplete?(-sortStartTime.timeIntervalSinceNow)
-            }
-
-            if orderAndDepthTempSort.count != splatCount {
-                orderAndDepthTempSort = Array(repeating: SplatIndexAndDepth(index: .max, depth: 0), count: splatCount)
-            }
-
-            if Constants.sortByDistance {
-                for i in 0..<splatCount {
-                    orderAndDepthTempSort[i].index = UInt32(i)
-                    let splatPosition = splatBuffer.values[i].position.simd
-                    orderAndDepthTempSort[i].depth = (splatPosition - cameraWorldPosition).lengthSquared
-                }
-            } else {
-                for i in 0..<splatCount {
-                    orderAndDepthTempSort[i].index = UInt32(i)
-                    let splatPosition = splatBuffer.values[i].position.simd
-                    orderAndDepthTempSort[i].depth = dot(splatPosition, cameraWorldForward)
-                }
-            }
-
-            orderAndDepthTempSort.sort { $0.depth > $1.depth }
-
-            do {
-                try splatBufferPrime.setCapacity(splatCount)
-                splatBufferPrime.count = 0
-                for newIndex in 0..<orderAndDepthTempSort.count {
-                    let oldIndex = Int(orderAndDepthTempSort[newIndex].index)
-                    splatBufferPrime.append(splatBuffer, fromIndex: oldIndex)
-                }
-
-                swap(&splatBuffer, &splatBufferPrime)
-            } catch {
-                // TODO: report error
+        if forceSynchronousSorting {
+            sortTask()
+        }
+        else {
+            Task(priority: .high) {
+                sortTask()
             }
         }
     }

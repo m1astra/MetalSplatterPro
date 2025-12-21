@@ -1,10 +1,10 @@
 import Foundation
 
-enum ModelIdentifier: Equatable, Hashable, Codable, CustomStringConvertible {
+public enum ModelIdentifier: Equatable, Hashable, Codable, CustomStringConvertible {
     case gaussianSplat(URL)
     case sampleBox
 
-    var description: String {
+    public var description: String {
         switch self {
         case .gaussianSplat(let url):
             "Gaussian Splat: \(url.path)"

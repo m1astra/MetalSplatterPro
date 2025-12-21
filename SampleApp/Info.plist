@@ -11,5 +11,93 @@
 		<key>UISceneConfigurations</key>
 		<dict/>
 	</dict>
+	<key>UIFileSharingEnabled</key>
+	<true/>
+	<key>LSSupportsOpeningDocumentsInPlace</key>
+	<true/>
+	<key>UTExportedTypeDeclarations</key>
+	<array>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>public.polygon-file-format</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>ply</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>dev.maxthomas.metalsplatterplus.splat</string>
+			<key>UTTypeDescription</key>
+			<string>Gaussian Splat File</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>splat</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-splat</string>
+				</array>
+			</dict>
+		</dict>
+		<dict>
+			<key>UTTypeIdentifier</key>
+			<string>dev.maxthomas.metalsplatterplus.plysplat</string>
+			<key>UTTypeDescription</key>
+			<string>Gaussian Splat File</string>
+			<key>UTTypeConformsTo</key>
+			<array>
+				<string>public.data</string>
+			</array>
+			<key>UTTypeTagSpecification</key>
+			<dict>
+				<key>public.filename-extension</key>
+				<array>
+					<string>plysplat</string>
+                    <string>plyp</string>
+				</array>
+				<key>public.mime-type</key>
+				<array>
+					<string>application/x-plysplat</string>
+				</array>
+			</dict>
+		</dict>
+	</array>
+	<key>CFBundleDocumentTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleTypeName</key>
+			<string>Gaussian Splat File</string>
+			<key>CFBundleTypeRole</key>
+			<string>Viewer</string>
+			<key>LSHandlerRank</key>
+			<string>Owner</string>
+			<key>LSItemContentTypes</key>
+			<array>
+				<string>dev.maxthomas.metalsplatterplus.splat</string>
+				<string>dev.maxthomas.metalsplatterplus.plysplat</string>
+				<string>public.polygon-file-format</string>
+			</array>
+			<key>CFBundleTypeExtensions</key>
+			<array>
+				<string>splat</string>
+				<string>plyp</string>
+				<string>ply</string>
+			</array>
+		</dict>
+	</array>
 </dict>
 </plist>

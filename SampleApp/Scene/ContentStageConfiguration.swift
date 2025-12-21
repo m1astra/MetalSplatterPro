@@ -16,6 +16,12 @@ struct ContentStageConfiguration: CompositorLayerConfiguration {
         let supportedLayouts = capabilities.supportedLayouts(options: options)
 
         configuration.layout = supportedLayouts.contains(.layered) ? .layered : .dedicated
+        
+        if #available(visionOS 26.0, *) {
+            if foveationEnabled {
+                configuration.maxRenderQuality = .init(1.0)
+            }
+        }
     }
 }
 

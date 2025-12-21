@@ -2,7 +2,7 @@ import simd
 
 // Generic matrix math utility functions; from Apple sample code
 
-func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {
+public func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {
     let unitAxis = normalize(axis)
     let ct = cosf(radians)
     let st = sinf(radians)
@@ -14,14 +14,14 @@ func matrix4x4_rotation(radians: Float, axis: SIMD3<Float>) -> matrix_float4x4 {
                                          vector_float4(                  0,                   0,                   0, 1)))
 }
 
-func matrix4x4_translation(_ translationX: Float, _ translationY: Float, _ translationZ: Float) -> matrix_float4x4 {
+public func matrix4x4_translation(_ translationX: Float, _ translationY: Float, _ translationZ: Float) -> matrix_float4x4 {
     return matrix_float4x4.init(columns:(vector_float4(1, 0, 0, 0),
                                          vector_float4(0, 1, 0, 0),
                                          vector_float4(0, 0, 1, 0),
                                          vector_float4(translationX, translationY, translationZ, 1)))
 }
 
-func matrix_perspective_right_hand(fovyRadians fovy: Float, aspectRatio: Float, nearZ: Float, farZ: Float) -> matrix_float4x4 {
+public func matrix_perspective_right_hand(fovyRadians fovy: Float, aspectRatio: Float, nearZ: Float, farZ: Float) -> matrix_float4x4 {
     let ys = 1 / tanf(fovy * 0.5)
     let xs = ys / aspectRatio
     let zs = farZ / (nearZ - farZ)
