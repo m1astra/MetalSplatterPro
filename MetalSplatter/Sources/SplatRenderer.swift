@@ -225,7 +225,7 @@ public class SplatRenderer {
 
     public func reset() {
         splatBuffer.count = 0
-        try? splatBuffer.setCapacity(0)
+        //try? splatBuffer.setCapacity(0)
     }
 
     public func read(from url: URL) async throws {
@@ -613,7 +613,6 @@ public class SplatRenderer {
             }
 
             swap(&splatBuffer, &splatBufferPrime)
-            try splatBufferPrime.setCapacity(0)
         } catch {
             // TODO: report error
         }

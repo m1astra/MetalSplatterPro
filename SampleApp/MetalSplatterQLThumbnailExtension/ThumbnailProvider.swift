@@ -84,48 +84,51 @@ class ThumbnailProvider: QLThumbnailProvider {
             ctx.setFillColor(CGColor.init(red: 0.0, green: 0.0, blue: 0.0, alpha: 0.0))
             ctx.fill(CGRect(origin: .zero, size: CGSize(width: ctx.width, height: ctx.height)))
             
-            // HACK: We have to render in parts for thumbnailing due to memory limits
-            while true {
-                print("Next loop", renderedPoints, numPoints)
-                var modelRenderer: SplatRenderer? = nil
-                
-                do {
-                    let splat = try SplatRenderer(device: device,
+            var modelRenderer: SplatRenderer? = nil
+            do {
+                let splat = try SplatRenderer(device: device,
                                               colorFormat: .rgba8Unorm_srgb,
                                               depthFormat: .invalid,
                                               sampleCount: 1,
                                               maxViewCount: 1,
                                               maxSimultaneousRenders: 3)
+                modelRenderer = splat
+            }
+            catch {
+                print("Failed to init SplatRenderer?")
+                let reply = QLThumbnailReply(contextSize: size) { ctx in
+                    return false
+                }
+
+                handler(reply, nil)
+                return
+            }
+            
+            // HACK: We have to render in parts for thumbnailing due to memory limits
+            while true {
+                print("Next loop", renderedPoints, numPoints)
+                
+                
+                do {
+                    modelRenderer?.reset()
+
 #if !(os(macOS) || targetEnvironment(macCatalyst))
-                    splat.forceMaximumNumPoints = 150000
+                    modelRenderer?.forceMaximumNumPoints = 150000
 #else
-                    splat.forceMaximumNumPoints = 500000
+                    modelRenderer?.forceMaximumNumPoints = 500000
 #endif
-                    splat.forceSkipNumPoints = renderedPoints
-                    try await splat.read(from: url)
+                    modelRenderer?.forceSkipNumPoints = renderedPoints
+                    try await modelRenderer?.read(from: url)
                     if numPoints <= 0 {
-                        numPoints = splat.numPoints
+                        numPoints = modelRenderer?.numPoints ?? 0
                     }
-                    renderedPoints += splat.renderingPoints
-                    modelRenderer = splat
+                    renderedPoints += modelRenderer?.renderingPoints ?? 0
                 }
                 catch {
-#if false
-                    let reply = QLThumbnailReply(contextSize: size) { ctx in
-                        // Draw your thumbnail using `data` (synchronously)
-                        // e.g., Metal render, CG draw, etc.
-                        ctx.setFillColor(CGColor.init(red: 1.0, green: 0.0, blue: 1.0, alpha: 1.0))
-                        ctx.fill(CGRect(origin: .zero, size: CGSize(width: ctx.width, height: ctx.height)))
-                        
-                        print("Releasing lock (failed)")
-                        //objc_sync_exit(self.oneAtATimeLock)
-                        return true
-                    }
-#else
+                    print("Failed to read splats?")
                     let reply = QLThumbnailReply(contextSize: size) { ctx in
                         return false
                     }
-#endif
 
                     handler(reply, nil)
                     return

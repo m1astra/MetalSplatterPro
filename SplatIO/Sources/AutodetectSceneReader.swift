@@ -21,7 +21,6 @@ public class AutodetectSceneReader: SplatSceneReader {
         let readResult = inputStream.read(buffer, maxLength: 4)
         inputStream.close()
         
-        print(readResult, buffer[0], buffer[1], buffer[2], buffer[3], buffer)
         switch readResult {
             case 4:
                 if buffer[0] == 0x70 && buffer[1] == 0x6C && buffer[2] == 0x79 {

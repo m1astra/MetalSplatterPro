@@ -138,7 +138,7 @@ struct ContentView: View {
             }
             
             // Thumbnail and QuickLook testing
-#if false
+#if os(macOS) || targetEnvironment(macCatalyst)
             Button(action: {
                 self.url = fileURL
             }, label: {

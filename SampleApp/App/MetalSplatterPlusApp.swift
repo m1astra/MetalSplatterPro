@@ -83,7 +83,9 @@ struct MetalSplatterPlusApp: App {
         .handlesExternalEvents(
             matching: ["*"]
         )
+#if os(macOS) || os(visionOS)
         .windowStyle(.plain)
+#endif
         .windowResizability(.contentSize)
         
         /*DocumentGroup(
