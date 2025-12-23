@@ -2,10 +2,12 @@ import SwiftUI
 import RealityKit
 import UniformTypeIdentifiers
 import QuickLook
+import PhotosUI
 
 struct ContentView: View {
     @State private var isPickingFile = false
     @State private var isPickingImage = false
+    @State private var selectedPhotoItem: PhotosPickerItem? = nil
     @State private var generationState: GenerationState = .idle
     @State private var generator = SplatGenerator()
     @State private var generationStart: Date?
@@ -128,16 +130,11 @@ struct ContentView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(isPickingImage || generationState.isActive)
-                    .fileImporter(isPresented: $isPickingImage,
-                                  allowedContentTypes: [.image, .jpeg, .png, .heic]) {
-                        isPickingImage = false
-                        switch $0 {
-                        case .success(let imageURL):
-                            Task {
-                                await handleImageGeneration(imageURL)
-                            }
-                        case .failure:
-                            break
+                    .photosPicker(isPresented: $isPickingImage, selection: $selectedPhotoItem)
+                    .onChange(of: selectedPhotoItem) { oldValue, newValue in
+                        guard let newValue else { return }
+                        Task {
+                            await handlePhotoPickerSelection(newValue)
                         }
                     }
                 }
@@ -170,6 +167,15 @@ struct ContentView: View {
                 }
                 .buttonStyle(.bordered)
                 .disabled(isPickingImage || generationState.isActive)
+#if os(iOS) || os(visionOS)
+                .photosPicker(isPresented: $isPickingImage, selection: $selectedPhotoItem)
+                .onChange(of: selectedPhotoItem) { oldValue, newValue in
+                    guard let newValue else { return }
+                    Task {
+                        await handlePhotoPickerSelection(newValue)
+                    }
+                }
+#else
                 .fileImporter(isPresented: $isPickingImage,
                               allowedContentTypes: [.image, .jpeg, .png, .heic]) {
                     isPickingImage = false
@@ -182,6 +188,7 @@ struct ContentView: View {
                         break
                     }
                 }
+#endif
             }
 #endif
         }
@@ -311,10 +318,37 @@ struct ContentView: View {
     
     // MARK: - Generation Logic
     
-    private func handleImageGeneration(_ imageURL: URL) async {
+    private func handlePhotoPickerSelection(_ item: PhotosPickerItem) async {
+        defer { selectedPhotoItem = nil }
+        
         generationStart = Date()
         generationState = .loadingModel
         generatedURLToSave = nil
+        
+        guard let data = try? await item.loadTransferable(type: Data.self),
+              let image = UIImage(data: data) else {
+            generationState = .error("Failed to load image from photo library")
+            return
+        }
+        
+        let tempDir = FileManager.default.temporaryDirectory
+        let tempURL = tempDir.appendingPathComponent(UUID().uuidString).appendingPathExtension("jpg")
+        
+        guard let jpegData = image.jpegData(compressionQuality: 0.9),
+              (try? jpegData.write(to: tempURL)) != nil else {
+            generationState = .error("Failed to save image")
+            return
+        }
+        
+        await handleImageGeneration(tempURL)
+    }
+    
+    private func handleImageGeneration(_ imageURL: URL) async {
+        if generationState == .idle {
+            generationStart = Date()
+            generationState = .loadingModel
+            generatedURLToSave = nil
+        }
         
         do {
             try await generator.loadModelIfNeeded()
