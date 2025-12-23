@@ -1,5 +1,6 @@
 #if os(visionOS)
 import CompositorServices
+import UIKit
 #endif
 import SwiftUI
 
@@ -76,7 +77,7 @@ struct MetalSplatterPlusApp: App {
 #endif
 
     var body: some Scene {
-        WindowGroup("MetalSplatterPlus", id: "main") {
+        WindowGroup("MetalSplatterPro", id: "main") {
             ContentView(immersiveSpaceIsShown: immersiveSpaceIsShown)
             .onOpenURL { url in
                 print("OPEN URL:", url)

@@ -108,7 +108,7 @@ class VisionSceneRenderer {
         modelRenderer = nil
         switch model {
         case .gaussianSplat(let url):
-            _ = url.startAccessingSecurityScopedResource()
+            let didAccess = url.startAccessingSecurityScopedResource()
             print("Trying to open:", url)
             let splat = try SplatRenderer(device: device,
                                           colorFormat: layerRenderer.configuration.colorFormat,
@@ -133,7 +133,7 @@ class VisionSceneRenderer {
             print(VisionSceneRenderer.handTranslationMat)
             print(VisionSceneRenderer.handScaleMat)*/
             
-            url.stopAccessingSecurityScopedResource()
+            if didAccess { url.stopAccessingSecurityScopedResource() }
         case .none:
             break
         default:
@@ -373,8 +373,9 @@ class VisionSceneRenderer {
             if self.currentRenderQuality < 0.1 {
                 self.currentRenderQuality = 0.1
             }
+            if layerRenderer.configuration.isFoveationEnabled {
             layerRenderer.renderQuality = LayerRenderer.RenderQuality(Float(self.currentRenderQuality))
-            
+            }
         }
         else {
             self.currentRenderQuality += renderDelta

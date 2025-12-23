@@ -3,3 +3,13 @@ xcuserdata
 DerivedData/
 .swiftpm
 
+# Large model (downloaded separately)
+SampleApp/Scene/sharp.mlmodelc/
+
+# Local download cache for large assets
+.model-cache/
+
+# Never commit local model packaging artifacts
+ModelDist/
+sharp_model_dist.zip
+

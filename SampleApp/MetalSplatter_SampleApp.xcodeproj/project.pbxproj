@@ -7,6 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		04D2BE522EFA2047009F7AA3 /* SplatGenerator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 04D2BE512EFA2047009F7AA3 /* SplatGenerator.swift */; };
+		04D2BE542EFA21A2009F7AA3 /* sharp.mlmodelc in Resources */ = {isa = PBXBuildFile; fileRef = 04D2BE532EFA21A2009F7AA3 /* sharp.mlmodelc */; };
 		610347D92B46864500693CE3 /* MetalSplatterPlusApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61791DF62B41551F00302B57 /* MetalSplatterPlusApp.swift */; };
 		610347DA2B46874500693CE3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61791DF72B41551F00302B57 /* ContentView.swift */; };
 		610347DB2B46875700693CE3 /* VisionSceneRenderer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61791E0C2B41683500302B57 /* VisionSceneRenderer.swift */; };
@@ -75,6 +77,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		04D2BE512EFA2047009F7AA3 /* SplatGenerator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplatGenerator.swift; sourceTree = "<group>"; };
+		04D2BE532EFA21A2009F7AA3 /* sharp.mlmodelc */ = {isa = PBXFileReference; lastKnownFileType = wrapper; path = sharp.mlmodelc; sourceTree = "<group>"; };
 		610347D82B46861E00693CE3 /* ContentStageConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentStageConfiguration.swift; sourceTree = "<group>"; };
 		61791DC32B41514300302B57 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		61791DF62B41551F00302B57 /* MetalSplatterPlusApp.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = MetalSplatterPlusApp.swift; sourceTree = "<group>"; };
@@ -84,7 +88,6 @@
 		617E50B02B314BE200F99766 /* MetalSplatter SampleApp.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "MetalSplatter SampleApp.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7AC3CF42EF651AD00C81E95 /* MetalSplatterQLThumbnailExtension.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = MetalSplatterQLThumbnailExtension.appex; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7AC3CF52EF651AD00C81E95 /* QuickLookThumbnailing.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLookThumbnailing.framework; path = System/Library/Frameworks/QuickLookThumbnailing.framework; sourceTree = SDKROOT; };
-		E7AC3D032EF6524800C81E95 /* MetalSplatter */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = MetalSplatter; path = /Users/maxamillion/workspace/MetalSplatter; sourceTree = "<absolute>"; };
 		E7AC3D152EF727F500C81E95 /* QuickLook.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = QuickLook.framework; path = System/Library/Frameworks/QuickLook.framework; sourceTree = SDKROOT; };
 		E7AC3D2C2EF7283C00C81E95 /* MetalSplatterCommon.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = MetalSplatterCommon.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		E7AC3D7E2EF73B7600C81E95 /* test.splat */ = {isa = PBXFileReference; lastKnownFileType = file; path = test.splat; sourceTree = "<group>"; };
@@ -180,6 +183,8 @@
 				610347D82B46861E00693CE3 /* ContentStageConfiguration.swift */,
 				61791DF72B41551F00302B57 /* ContentView.swift */,
 				61791E0C2B41683500302B57 /* VisionSceneRenderer.swift */,
+				04D2BE512EFA2047009F7AA3 /* SplatGenerator.swift */,
+				04D2BE532EFA21A2009F7AA3 /* sharp.mlmodelc */,
 			);
 			path = Scene;
 			sourceTree = "<group>";
@@ -206,7 +211,6 @@
 				E7AC3D8F2EF7409000C81E95 /* QuickLook.framework */,
 				E7AC3CF52EF651AD00C81E95 /* QuickLookThumbnailing.framework */,
 				E7AC3D822EF73CD100C81E95 /* QuickLookThumbnailing.framework */,
-				E7AC3D032EF6524800C81E95 /* MetalSplatter */,
 				E7AC3D152EF727F500C81E95 /* QuickLook.framework */,
 			);
 			name = Frameworks;
@@ -389,6 +393,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E7AC3D7F2EF73B7600C81E95 /* test.splat in Resources */,
+				04D2BE542EFA21A2009F7AA3 /* sharp.mlmodelc in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -413,6 +418,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				04D2BE522EFA2047009F7AA3 /* SplatGenerator.swift in Sources */,
 				610347DA2B46874500693CE3 /* ContentView.swift in Sources */,
 				610347DB2B46875700693CE3 /* VisionSceneRenderer.swift in Sources */,
 				610347D92B46864500693CE3 /* MetalSplatterPlusApp.swift in Sources */,
@@ -474,8 +480,9 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MetalSplatterPlus;
+				INFOPLIST_KEY_CFBundleDisplayName = MetalSplatterPro;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -527,8 +534,9 @@
 				ENABLE_USER_SELECTED_FILES = readwrite;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_FILE = Info.plist;
-				INFOPLIST_KEY_CFBundleDisplayName = MetalSplatterPlus;
+				INFOPLIST_KEY_CFBundleDisplayName = MetalSplatterPro;
 				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSSupportsOpeningDocumentsInPlace = YES;
 				INFOPLIST_KEY_NSCameraUsageDescription = "";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
@@ -593,7 +601,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = dwarf;
-				DEVELOPMENT_TEAM = A2R992S5N3;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
@@ -657,7 +665,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				COPY_PHASE_STRIP = NO;
 				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
-				DEVELOPMENT_TEAM = A2R992S5N3;
+				DEVELOPMENT_TEAM = "";
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_USER_SCRIPT_SANDBOXING = YES;
