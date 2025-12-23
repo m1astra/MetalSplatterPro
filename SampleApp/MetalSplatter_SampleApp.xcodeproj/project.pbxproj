@@ -374,7 +374,7 @@
 			);
 			mainGroup = 61E3FD792AE5CB0200032652;
 			packageReferences = (
-				E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference "../../MetalSplatter" */,
+				E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference ".." */,
 			);
 			productRefGroup = 61E3FD832AE5CB0200032652 /* Products */;
 			projectDirPath = "";
@@ -905,9 +905,9 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference "../../MetalSplatter" */ = {
+		E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference ".." */ = {
 			isa = XCLocalSwiftPackageReference;
-			relativePath = ../../MetalSplatter;
+			relativePath = ..;
 		};
 /* End XCLocalSwiftPackageReference section */
 
@@ -942,22 +942,22 @@
 		};
 		E7AC3D4F2EF729CE00C81E95 /* MetalSplatter */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference "../../MetalSplatter" */;
+			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference ".." */;
 			productName = MetalSplatter;
 		};
 		E7AC3D512EF729CE00C81E95 /* PLYIO */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference "../../MetalSplatter" */;
+			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference ".." */;
 			productName = PLYIO;
 		};
 		E7AC3D532EF729CE00C81E95 /* SampleBoxRenderer */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference "../../MetalSplatter" */;
+			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference ".." */;
 			productName = SampleBoxRenderer;
 		};
 		E7AC3D552EF729CE00C81E95 /* SplatIO */ = {
 			isa = XCSwiftPackageProductDependency;
-			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference "../../MetalSplatter" */;
+			package = E7AC3D042EF652BF00C81E95 /* XCLocalSwiftPackageReference ".." */;
 			productName = SplatIO;
 		};
 /* End XCSwiftPackageProductDependency section */
