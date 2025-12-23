@@ -317,25 +317,36 @@ struct ContentView: View {
     }
     
     // MARK: - Generation Logic
+
+    private func guessImageExtension(data: Data, supportedTypes: [UTType]) -> String {
+        if data.count >= 2, data[0] == 0xFF, data[1] == 0xD8 { return "jpg" }
+        if data.count >= 8,
+           data.prefix(8) == Data([0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A]) { return "png" }
+        if data.count >= 12, data.subdata(in: 4..<8) == Data("ftyp".utf8) { return "heic" }
+
+        if supportedTypes.contains(where: { $0.conforms(to: .heic) }) { return "heic" }
+        if supportedTypes.contains(where: { $0.conforms(to: .jpeg) }) { return "jpg" }
+        if supportedTypes.contains(where: { $0.conforms(to: .png) }) { return "png" }
+        return "img"
+    }
     
     private func handlePhotoPickerSelection(_ item: PhotosPickerItem) async {
         defer { selectedPhotoItem = nil }
-        
+
         generationStart = Date()
         generationState = .loadingModel
         generatedURLToSave = nil
         
-        guard let data = try? await item.loadTransferable(type: Data.self),
-              let image = UIImage(data: data) else {
+        guard let data = try? await item.loadTransferable(type: Data.self) else {
             generationState = .error("Failed to load image from photo library")
             return
         }
         
         let tempDir = FileManager.default.temporaryDirectory
-        let tempURL = tempDir.appendingPathComponent(UUID().uuidString).appendingPathExtension("jpg")
-        
-        guard let jpegData = image.jpegData(compressionQuality: 0.9),
-              (try? jpegData.write(to: tempURL)) != nil else {
+        let ext = guessImageExtension(data: data, supportedTypes: item.supportedContentTypes)
+        let tempURL = tempDir.appendingPathComponent(UUID().uuidString).appendingPathExtension(ext)
+
+        guard (try? data.write(to: tempURL)) != nil else {
             generationState = .error("Failed to save image")
             return
         }

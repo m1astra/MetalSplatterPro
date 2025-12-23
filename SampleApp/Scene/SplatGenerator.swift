@@ -1,6 +1,8 @@
 import Foundation
 import CoreML
 import UIKit
+import ImageIO
+import CoreImage
 
 // Set to true to use fast mock inference on simulator (for UI testing)
 #if targetEnvironment(simulator)
@@ -122,15 +124,25 @@ class SplatGenerator {
     }
     
     nonisolated private func preprocessImage(_ url: URL) throws -> ([Float], Float, Int, Int) {
-        guard let image = UIImage(contentsOfFile: url.path) else {
+        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
+              let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
             throw GeneratorError.imageLoadFailed
         }
-        
-        let originalWidth = Int(image.size.width)
-        let originalHeight = Int(image.size.height)
-        let focalLengthPx = extractFocalLength(from: url, imageWidth: originalWidth)
-        
-        guard let resized = resizeImage(image, to: CGSize(width: inputSize, height: inputSize)),
+
+        let orientation = (props[kCGImagePropertyOrientation] as? NSNumber)?.intValue
+            ?? (props[kCGImagePropertyOrientation] as? Int)
+            ?? 1
+
+        guard let oriented = applyExifOrientation(cgImage, orientation: orientation) else {
+            throw GeneratorError.imageProcessingFailed
+        }
+
+        let originalWidth = oriented.width
+        let originalHeight = oriented.height
+        let focalLengthPx = extractFocalLengthPx(props: props, pixelWidth: originalWidth, pixelHeight: originalHeight)
+
+        guard let resized = resizeCGImage(oriented, to: CGSize(width: inputSize, height: inputSize)),
               let floatData = imageToFloatArray(resized) else {
             throw GeneratorError.imageProcessingFailed
         }
@@ -138,17 +150,47 @@ class SplatGenerator {
         return (floatData, focalLengthPx, originalWidth, originalHeight)
     }
     
-    nonisolated private func extractFocalLength(from url: URL, imageWidth: Int) -> Float {
-        guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-              let properties = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
-              let exif = properties[kCGImagePropertyExifDictionary] as? [CFString: Any],
-              let focalLength = exif[kCGImagePropertyExifFocalLength] as? Float else {
-            return (30.0 / 36.0) * Float(imageWidth)
+    nonisolated private func extractFocalLengthPx(props: [CFString: Any], pixelWidth: Int, pixelHeight: Int) -> Float {
+        let exif = props[kCGImagePropertyExifDictionary] as? [CFString: Any]
+
+        func num(_ key: CFString) -> Double? {
+            if let n = exif?[key] as? NSNumber { return n.doubleValue }
+            if let d = exif?[key] as? Double { return d }
+            if let f = exif?[key] as? Float { return Double(f) }
+            return nil
         }
-        return (focalLength / 36.0) * Float(imageWidth)
+
+        let focal35 =
+            num(kCGImagePropertyExifFocalLenIn35mmFilm)
+            ?? num("FocalLengthIn35mmFilm" as CFString)
+            ?? num("FocalLenIn35mmFilm" as CFString)
+
+        var fMm: Double?
+        if let focal35, focal35 >= 1 {
+            fMm = focal35
+        } else {
+            fMm = num(kCGImagePropertyExifFocalLength) ?? num("FocalLength" as CFString)
+            if fMm == nil { fMm = 30.0 }
+            if let v = fMm, v < 10.0 { fMm = v * 8.4 }
+        }
+
+        let w = Double(pixelWidth)
+        let h = Double(pixelHeight)
+        let diag = (w * w + h * h).squareRoot()
+        let sensorDiag = (36.0 * 36.0 + 24.0 * 24.0).squareRoot()
+        return Float((fMm ?? 30.0) * diag / sensorDiag)
+    }
+
+    nonisolated private func applyExifOrientation(_ image: CGImage, orientation: Int) -> CGImage? {
+        if orientation == 1 { return image }
+
+        let ciImage = CIImage(cgImage: image).oriented(forExifOrientation: Int32(orientation))
+        let ctx = CIContext(options: nil)
+        let rect = ciImage.extent.integral
+        return ctx.createCGImage(ciImage, from: rect)
     }
     
-    nonisolated private func resizeImage(_ image: UIImage, to size: CGSize) -> CGImage? {
+    nonisolated private func resizeCGImage(_ image: CGImage, to size: CGSize) -> CGImage? {
         let width = Int(size.width)
         let height = Int(size.height)
         
@@ -157,10 +199,10 @@ class SplatGenerator {
             bitsPerComponent: 8, bytesPerRow: width * 4,
             space: CGColorSpaceCreateDeviceRGB(),
             bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ), let sourceCGImage = image.cgImage else { return nil }
+        ) else { return nil }
         
         context.interpolationQuality = .high
-        context.draw(sourceCGImage, in: CGRect(x: 0, y: 0, width: width, height: height))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
         return context.makeImage()
     }
     
