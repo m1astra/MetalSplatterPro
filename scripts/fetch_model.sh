@@ -1,8 +1,8 @@
 #!/bin/bash
 set -euo pipefail
 
-MODEL_ZIP_URL="https://github.com/m1astra/MetalSplatterPro/releases/download/model-v1/sharp_model_dist.zip"
-MODEL_ZIP_SHA256="8f9f94ccc483ae6c93d12aa038d95b9943996607e9bf6d6bd1737ccc390753a4"
+MODEL_ZIP_URL="https://github.com/m1astra/MetalSplatterPro/releases/download/model-v1.1/sharp_model_dist.zip"
+MODEL_ZIP_SHA256="469bc583473d81aa8f0ba33bf429a11fee2c20ef92622865c98a8f269e5c98c0"
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SCENE_DIR="${REPO_ROOT}/SampleApp/Scene"

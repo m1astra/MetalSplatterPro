@@ -33,8 +33,8 @@ Notes:
 
 ### Model download
 
-- **Model zip URL**: [sharp_model_dist.zip](https://github.com/m1astra/MetalSplatterPro/releases/download/model-v1/sharp_model_dist.zip)
-- **sha256**: `8f9f94ccc483ae6c93d12aa038d95b9943996607e9bf6d6bd1737ccc390753a4`
+- **Model zip URL**: [sharp_model_dist.zip](https://github.com/m1astra/MetalSplatterPro/releases/download/model-v1.1/sharp_model_dist.zip)
+- **sha256**: `469bc583473d81aa8f0ba33bf429a11fee2c20ef92622865c98a8f269e5c98c0`
 
 ## Model license (IMPORTANT / research-only)
 
