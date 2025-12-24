@@ -3,8 +3,8 @@ import CoreML
 import UIKit
 import ImageIO
 import CoreImage
+import simd
 
-// Set to true to use fast mock inference on simulator (for UI testing)
 #if targetEnvironment(simulator)
 private let useMockInference = true
 #else
@@ -15,7 +15,6 @@ private let useMockInference = false
 @Observable
 class SplatGenerator {
     private var model: MLModel?
-    private let inputSize = 1536
     
     var isModelLoaded: Bool { model != nil || useMockInference }
     
@@ -40,6 +39,10 @@ class SplatGenerator {
                     #else
                     config.computeUnits = .cpuAndGPU
                     #endif
+
+                    if #available(iOS 16.0, macOS 13.0, visionOS 1.0, *) {
+                        config.allowLowPrecisionAccumulationOnGPU = false
+                    }
                     
                     let loadedModel = try MLModel(contentsOf: modelURL, configuration: config)
                     continuation.resume(returning: loadedModel)
@@ -62,7 +65,8 @@ class SplatGenerator {
             
             DispatchQueue.global(qos: .userInitiated).async {
                 do {
-                    let (imageData, focalLengthPx, originalWidth, originalHeight) = try self.preprocessImage(imageURL)
+                    let targetSize = try self.modelImageInputSize(model: capturedModel)
+                    let (imageData, focalLengthPx, originalWidth, originalHeight) = try self.preprocessImage(imageURL, targetSize: targetSize)
                     let outputs = try self.runInferenceSync(model: capturedModel, imageData: imageData, focalLengthPx: focalLengthPx, originalWidth: originalWidth)
                     let worldGaussians = self.unproject(outputs, focalLengthPx: focalLengthPx, originalWidth: originalWidth, originalHeight: originalHeight)
                     let outputURL = try self.savePLY(worldGaussians, baseName: imageURL.deletingPathExtension().lastPathComponent)
@@ -74,7 +78,6 @@ class SplatGenerator {
         }
     }
     
-    // Mock generation for fast UI testing on simulator
     private func generateMock(baseName: String) async throws -> URL {
         try await Task.sleep(for: .seconds(2))
         
@@ -87,7 +90,6 @@ class SplatGenerator {
             counter += 1
         }
         
-        // Create a minimal valid PLY with a few test points
         let numPoints = 100
         var header = "ply\nformat binary_little_endian 1.0\nelement vertex \(numPoints)\n"
         header += "property float x\nproperty float y\nproperty float z\n"
@@ -123,7 +125,29 @@ class SplatGenerator {
         return outputURL
     }
     
-    nonisolated private func preprocessImage(_ url: URL) throws -> ([Float], Float, Int, Int) {
+    nonisolated private func modelImageInputSize(model: MLModel) throws -> CGSize {
+        guard let desc = model.modelDescription.inputDescriptionsByName["image"] else {
+            throw GeneratorError.modelIncompatible("Missing required input: image")
+        }
+        guard desc.type == .multiArray, let c = desc.multiArrayConstraint else {
+            throw GeneratorError.modelIncompatible("Expected multiArray input for: image")
+        }
+
+        let dims = c.shape.map { $0.intValue }
+        guard dims.count >= 2 else {
+            throw GeneratorError.modelIncompatible("Invalid image input shape: \(dims)")
+        }
+
+        let h = dims[dims.count - 2]
+        let w = dims[dims.count - 1]
+        if h <= 0 || w <= 0 {
+            throw GeneratorError.modelIncompatible("Invalid image input shape: \(dims)")
+        }
+
+        return CGSize(width: w, height: h)
+    }
+
+    nonisolated private func preprocessImage(_ url: URL, targetSize: CGSize) throws -> ([Float], Float, Int, Int) {
         guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
               let props = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
               let cgImage = CGImageSourceCreateImageAtIndex(source, 0, nil) else {
@@ -142,8 +166,10 @@ class SplatGenerator {
         let originalHeight = oriented.height
         let focalLengthPx = extractFocalLengthPx(props: props, pixelWidth: originalWidth, pixelHeight: originalHeight)
 
-        guard let resized = resizeCGImage(oriented, to: CGSize(width: inputSize, height: inputSize)),
-              let floatData = imageToFloatArray(resized) else {
+        let w = max(Int(targetSize.width), 1)
+        let h = max(Int(targetSize.height), 1)
+
+        guard let floatData = resampleCGImageToCHWAlignCornersBilinear(oriented, dstW: w, dstH: h) else {
             throw GeneratorError.imageProcessingFailed
         }
         
@@ -185,76 +211,157 @@ class SplatGenerator {
         if orientation == 1 { return image }
 
         let ciImage = CIImage(cgImage: image).oriented(forExifOrientation: Int32(orientation))
-        let ctx = CIContext(options: nil)
+        let cs = image.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let ctx = CIContext(options: [
+            CIContextOption.workingColorSpace: cs,
+            CIContextOption.outputColorSpace: cs
+        ])
         let rect = ciImage.extent.integral
-        return ctx.createCGImage(ciImage, from: rect)
+        return ctx.createCGImage(ciImage, from: rect, format: .RGBA8, colorSpace: cs)
     }
-    
-    nonisolated private func resizeCGImage(_ image: CGImage, to size: CGSize) -> CGImage? {
-        let width = Int(size.width)
-        let height = Int(size.height)
-        
+
+    nonisolated private func resampleCGImageToCHWAlignCornersBilinear(_ image: CGImage, dstW: Int, dstH: Int) -> [Float]? {
+        let srcW = image.width
+        let srcH = image.height
+        if srcW <= 0 || srcH <= 0 || dstW <= 0 || dstH <= 0 { return nil }
+
+        let colorSpace = image.colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo = CGBitmapInfo.byteOrder32Big.rawValue | CGImageAlphaInfo.noneSkipLast.rawValue
+
         guard let context = CGContext(
-            data: nil, width: width, height: height,
-            bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
-        ) else { return nil }
-        
-        context.interpolationQuality = .high
-        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
-        return context.makeImage()
-    }
-    
-    nonisolated private func imageToFloatArray(_ cgImage: CGImage) -> [Float]? {
-        let width = cgImage.width
-        let height = cgImage.height
-        
-        guard let context = CGContext(
-            data: nil, width: width, height: height,
-            bitsPerComponent: 8, bytesPerRow: width * 4,
-            space: CGColorSpaceCreateDeviceRGB(),
-            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+            data: nil, width: srcW, height: srcH,
+            bitsPerComponent: 8, bytesPerRow: srcW * 4,
+            space: colorSpace,
+            bitmapInfo: bitmapInfo
         ), let data = context.data else { return nil }
-        
-        context.draw(cgImage, in: CGRect(x: 0, y: 0, width: width, height: height))
-        let pixelData = data.assumingMemoryBound(to: UInt8.self)
-        var floatData = [Float](repeating: 0, count: 3 * width * height)
-        
-        for y in 0..<height {
-            for x in 0..<width {
-                let pixelIndex = (y * width + x) * 4
-                let chIndex = y * width + x
-                floatData[0 * width * height + chIndex] = Float(pixelData[pixelIndex]) / 255.0
-                floatData[1 * width * height + chIndex] = Float(pixelData[pixelIndex + 1]) / 255.0
-                floatData[2 * width * height + chIndex] = Float(pixelData[pixelIndex + 2]) / 255.0
+
+        context.setBlendMode(.copy)
+        context.draw(image, in: CGRect(x: 0, y: 0, width: srcW, height: srcH))
+
+        let src = data.assumingMemoryBound(to: UInt8.self)
+        let dstPlane = dstW * dstH
+        var dst = [Float](repeating: 0, count: 3 * dstPlane)
+
+        let scaleX: Float = (dstW > 1) ? Float(srcW - 1) / Float(dstW - 1) : 0
+        let scaleY: Float = (dstH > 1) ? Float(srcH - 1) / Float(dstH - 1) : 0
+
+        for y in 0..<dstH {
+            let fy = Float(y) * scaleY
+            let y0 = Int(floor(fy))
+            let y1 = min(y0 + 1, srcH - 1)
+            let wy = fy - Float(y0)
+            let wy0 = 1.0 as Float - wy
+
+            for x in 0..<dstW {
+                let fx = Float(x) * scaleX
+                let x0 = Int(floor(fx))
+                let x1 = min(x0 + 1, srcW - 1)
+                let wx = fx - Float(x0)
+                let wx0 = 1.0 as Float - wx
+
+                let w00 = wx0 * wy0
+                let w01 = wx * wy0
+                let w10 = wx0 * wy
+                let w11 = wx * wy
+
+                let i00 = (y0 * srcW + x0) * 4
+                let i01 = (y0 * srcW + x1) * 4
+                let i10 = (y1 * srcW + x0) * 4
+                let i11 = (y1 * srcW + x1) * 4
+
+                let r =
+                    w00 * Float(src[i00]) +
+                    w01 * Float(src[i01]) +
+                    w10 * Float(src[i10]) +
+                    w11 * Float(src[i11])
+                let g =
+                    w00 * Float(src[i00 + 1]) +
+                    w01 * Float(src[i01 + 1]) +
+                    w10 * Float(src[i10 + 1]) +
+                    w11 * Float(src[i11 + 1])
+                let b =
+                    w00 * Float(src[i00 + 2]) +
+                    w01 * Float(src[i01 + 2]) +
+                    w10 * Float(src[i10 + 2]) +
+                    w11 * Float(src[i11 + 2])
+
+                let o = y * dstW + x
+                dst[o] = r / 255.0
+                dst[dstPlane + o] = g / 255.0
+                dst[2 * dstPlane + o] = b / 255.0
             }
         }
-        
-        return floatData
+
+        return dst
     }
     
     nonisolated private func runInferenceSync(model: MLModel, imageData: [Float], focalLengthPx: Float, originalWidth: Int) throws -> GaussianOutputs {
-        let imageArray = try MLMultiArray(shape: [1, 3, 1536, 1536], dataType: .float16)
-        let imagePtr = imageArray.dataPointer.assumingMemoryBound(to: UInt16.self)
-        for i in 0..<imageData.count {
-            imagePtr[i] = float32ToFloat16(imageData[i])
+        guard let imageDesc = model.modelDescription.inputDescriptionsByName["image"] else {
+            throw GeneratorError.modelIncompatible("Missing required input: image")
+        }
+        guard imageDesc.type == .multiArray, let imageConstraint = imageDesc.multiArrayConstraint else {
+            throw GeneratorError.modelIncompatible("Expected multiArray input for: image")
+        }
+
+        let imageArray = try MLMultiArray(shape: imageConstraint.shape, dataType: imageConstraint.dataType)
+        if imageArray.count != imageData.count {
+            throw GeneratorError.modelIncompatible("Image input size mismatch: model expects \(imageArray.count) elements, got \(imageData.count)")
+        }
+
+        switch imageConstraint.dataType {
+        case .float16:
+            let ptr = imageArray.dataPointer.assumingMemoryBound(to: UInt16.self)
+            for i in 0..<imageData.count { ptr[i] = float32ToFloat16Bits(imageData[i]) }
+        case .float32:
+            let ptr = imageArray.dataPointer.assumingMemoryBound(to: Float32.self)
+            for i in 0..<imageData.count { ptr[i] = imageData[i] }
+        case .double:
+            let ptr = imageArray.dataPointer.assumingMemoryBound(to: Double.self)
+            for i in 0..<imageData.count { ptr[i] = Double(imageData[i]) }
+        default:
+            throw GeneratorError.modelIncompatible("Unsupported image input dtype: \(imageConstraint.dataType)")
         }
         
         let disparityFactor = focalLengthPx / Float(originalWidth)
-        let disparityArray = try MLMultiArray(shape: [1], dataType: .float16)
-        let dispPtr = disparityArray.dataPointer.assumingMemoryBound(to: UInt16.self)
-        dispPtr[0] = float32ToFloat16(disparityFactor)
-        
-        let input = try MLDictionaryFeatureProvider(dictionary: [
-            "image": MLFeatureValue(multiArray: imageArray),
-            "disparity_factor": MLFeatureValue(multiArray: disparityArray)
-        ])
+        guard let dispDesc = model.modelDescription.inputDescriptionsByName["disparity_factor"] else {
+            throw GeneratorError.modelIncompatible("Missing required input: disparity_factor")
+        }
+
+        let input: MLDictionaryFeatureProvider
+        if dispDesc.type == .multiArray, let dispConstraint = dispDesc.multiArrayConstraint {
+            let disparityArray = try MLMultiArray(shape: dispConstraint.shape, dataType: dispConstraint.dataType)
+            switch dispConstraint.dataType {
+            case .float16:
+                let ptr = disparityArray.dataPointer.assumingMemoryBound(to: UInt16.self)
+                for i in 0..<disparityArray.count { ptr[i] = float32ToFloat16Bits(disparityFactor) }
+            case .float32:
+                let ptr = disparityArray.dataPointer.assumingMemoryBound(to: Float32.self)
+                for i in 0..<disparityArray.count { ptr[i] = disparityFactor }
+            case .double:
+                let ptr = disparityArray.dataPointer.assumingMemoryBound(to: Double.self)
+                for i in 0..<disparityArray.count { ptr[i] = Double(disparityFactor) }
+            default:
+                throw GeneratorError.modelIncompatible("Unsupported disparity_factor dtype: \(dispConstraint.dataType)")
+            }
+
+            input = try MLDictionaryFeatureProvider(dictionary: [
+                "image": MLFeatureValue(multiArray: imageArray),
+                "disparity_factor": MLFeatureValue(multiArray: disparityArray)
+            ])
+        } else if dispDesc.type == .double {
+            input = try MLDictionaryFeatureProvider(dictionary: [
+                "image": MLFeatureValue(multiArray: imageArray),
+                "disparity_factor": MLFeatureValue(double: Double(disparityFactor))
+            ])
+        } else {
+            throw GeneratorError.modelIncompatible("Unsupported disparity_factor input type: \(dispDesc.type)")
+        }
         
         let options = MLPredictionOptions()
         #if targetEnvironment(simulator)
         options.usesCPUOnly = true
         #endif
+        
         let output = try model.prediction(from: input, options: options)
         
         guard let meanVectors = output.featureValue(for: "mean_vectors")?.multiArrayValue,
@@ -264,7 +371,7 @@ class SplatGenerator {
               let opacities = output.featureValue(for: "opacities")?.multiArrayValue else {
             throw GeneratorError.inferenceOutputMissing
         }
-        
+
         return GaussianOutputs(
             meanVectors: multiArrayToFloatArray(meanVectors),
             singularValues: multiArrayToFloatArray(singularValues),
@@ -281,16 +388,47 @@ class SplatGenerator {
         let numGaussians = ndc.meanVectors.count / 3
         var worldMeans = [Float](repeating: 0, count: ndc.meanVectors.count)
         var worldSingularValues = [Float](repeating: 0, count: ndc.singularValues.count)
-        
+
+        let ax = scaleX
+        let ay = scaleY
+        let az: Float = 1.0
+
         for i in 0..<numGaussians {
-            worldMeans[i * 3] = ndc.meanVectors[i * 3] * scaleX
-            worldMeans[i * 3 + 1] = ndc.meanVectors[i * 3 + 1] * scaleY
+            worldMeans[i * 3] = ndc.meanVectors[i * 3] * ax
+            worldMeans[i * 3 + 1] = ndc.meanVectors[i * 3 + 1] * ay
             worldMeans[i * 3 + 2] = ndc.meanVectors[i * 3 + 2]
-            worldSingularValues[i * 3] = ndc.singularValues[i * 3] * scaleX
-            worldSingularValues[i * 3 + 1] = ndc.singularValues[i * 3 + 1] * scaleY
-            worldSingularValues[i * 3 + 2] = ndc.singularValues[i * 3 + 2]
+
+            let s0 = max(ndc.singularValues[i * 3], 0)
+            let s1 = max(ndc.singularValues[i * 3 + 1], 0)
+            let s2 = max(ndc.singularValues[i * 3 + 2], 0)
+            let s0sq = s0 * s0
+            let s1sq = s1 * s1
+            let s2sq = s2 * s2
+
+            let qw = ndc.quaternions[i * 4]
+            let qx = ndc.quaternions[i * 4 + 1]
+            let qy = ndc.quaternions[i * 4 + 2]
+            let qz = ndc.quaternions[i * 4 + 3]
+            let qIn = simd_quatf(ix: qx, iy: qy, iz: qz, r: qw).normalized
+
+            let R = simd_float3x3(qIn)
+
+            var AR = R
+            AR.columns.0 = SIMD3<Float>(R.columns.0.x * ax, R.columns.0.y * ay, R.columns.0.z * az)
+            AR.columns.1 = SIMD3<Float>(R.columns.1.x * ax, R.columns.1.y * ay, R.columns.1.z * az)
+            AR.columns.2 = SIMD3<Float>(R.columns.2.x * ax, R.columns.2.y * ay, R.columns.2.z * az)
+
+            let M = simd_mul(simd_transpose(R), AR)
+
+            for j in 0..<3 {
+                let m0 = M.columns.0[j]
+                let m1 = M.columns.1[j]
+                let m2 = M.columns.2[j]
+                let v = (m0 * m0) * s0sq + (m1 * m1) * s1sq + (m2 * m2) * s2sq
+                worldSingularValues[i * 3 + j] = sqrt(max(v, 1e-20))
+            }
         }
-        
+
         return GaussianOutputs(
             meanVectors: worldMeans,
             singularValues: worldSingularValues,
@@ -319,33 +457,48 @@ class SplatGenerator {
         header += "property float scale_0\nproperty float scale_1\nproperty float scale_2\n"
         header += "property float rot_0\nproperty float rot_1\nproperty float rot_2\nproperty float rot_3\n"
         header += "end_header\n"
-        
-        var data = Data()
-        data.append(header.data(using: .utf8)!)
-        
+
+        let headerData = header.data(using: .utf8)!
+        FileManager.default.createFile(atPath: outputURL.path, contents: nil)
+        let fh = try FileHandle(forWritingTo: outputURL)
+        defer { try? fh.close() }
+
+        try fh.write(contentsOf: headerData)
+
+        let flushBytes = 4 * 1024 * 1024
+        var buffer = Data()
+        buffer.reserveCapacity(flushBytes)
+
         for i in 0..<numPoints {
-            appendFloat(&data, gaussians.meanVectors[i * 3])
-            appendFloat(&data, gaussians.meanVectors[i * 3 + 1])
-            appendFloat(&data, gaussians.meanVectors[i * 3 + 2])
-            
+            appendFloat(&buffer, gaussians.meanVectors[i * 3])
+            appendFloat(&buffer, gaussians.meanVectors[i * 3 + 1])
+            appendFloat(&buffer, gaussians.meanVectors[i * 3 + 2])
+
             let r = gaussians.colors[i * 3], g = gaussians.colors[i * 3 + 1], b = gaussians.colors[i * 3 + 2]
-            appendFloat(&data, rgbToSH(linearToSRGB(r)))
-            appendFloat(&data, rgbToSH(linearToSRGB(g)))
-            appendFloat(&data, rgbToSH(linearToSRGB(b)))
-            
-            appendFloat(&data, inverseSigmoid(gaussians.opacities[i]))
-            
-            appendFloat(&data, log(max(gaussians.singularValues[i * 3], 1e-8)))
-            appendFloat(&data, log(max(gaussians.singularValues[i * 3 + 1], 1e-8)))
-            appendFloat(&data, log(max(gaussians.singularValues[i * 3 + 2], 1e-8)))
-            
-            appendFloat(&data, gaussians.quaternions[i * 4])
-            appendFloat(&data, gaussians.quaternions[i * 4 + 1])
-            appendFloat(&data, gaussians.quaternions[i * 4 + 2])
-            appendFloat(&data, gaussians.quaternions[i * 4 + 3])
+            appendFloat(&buffer, rgbToSH(linearToSRGB(r)))
+            appendFloat(&buffer, rgbToSH(linearToSRGB(g)))
+            appendFloat(&buffer, rgbToSH(linearToSRGB(b)))
+
+            appendFloat(&buffer, inverseSigmoid(gaussians.opacities[i]))
+
+            appendFloat(&buffer, log(max(gaussians.singularValues[i * 3], 1e-8)))
+            appendFloat(&buffer, log(max(gaussians.singularValues[i * 3 + 1], 1e-8)))
+            appendFloat(&buffer, log(max(gaussians.singularValues[i * 3 + 2], 1e-8)))
+
+            appendFloat(&buffer, gaussians.quaternions[i * 4])
+            appendFloat(&buffer, gaussians.quaternions[i * 4 + 1])
+            appendFloat(&buffer, gaussians.quaternions[i * 4 + 2])
+            appendFloat(&buffer, gaussians.quaternions[i * 4 + 3])
+
+            if buffer.count >= flushBytes {
+                try fh.write(contentsOf: buffer)
+                buffer.removeAll(keepingCapacity: true)
+            }
         }
-        
-        try data.write(to: outputURL)
+
+        if !buffer.isEmpty {
+            try fh.write(contentsOf: buffer)
+        }
         return outputURL
     }
     
@@ -376,7 +529,7 @@ private func multiArrayToFloatArray(_ array: MLMultiArray) -> [Float] {
     return result
 }
 
-private func float32ToFloat16(_ f: Float) -> UInt16 {
+private func float32ToFloat16Bits(_ f: Float) -> UInt16 {
     let bits = f.bitPattern
     let sign = (bits >> 16) & 0x8000
     let exp = Int((bits >> 23) & 0xFF) - 127 + 15
@@ -401,6 +554,7 @@ enum GeneratorError: LocalizedError {
     case imageLoadFailed
     case imageProcessingFailed
     case inferenceOutputMissing
+    case modelIncompatible(String)
     
     var errorDescription: String? {
         switch self {
@@ -409,6 +563,7 @@ enum GeneratorError: LocalizedError {
         case .imageLoadFailed: return "Failed to load image"
         case .imageProcessingFailed: return "Failed to process image"
         case .inferenceOutputMissing: return "Inference output missing"
+        case .modelIncompatible(let msg): return "Model incompatible: \(msg)"
         }
     }
 }
